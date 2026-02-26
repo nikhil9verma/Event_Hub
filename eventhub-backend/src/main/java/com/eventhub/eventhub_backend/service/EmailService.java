@@ -1,29 +1,33 @@
 package com.eventhub.eventhub_backend.service;
 
-
 import com.eventhub.eventhub_backend.entity.Event;
 import com.eventhub.eventhub_backend.entity.User;
-import lombok.RequiredArgsConstructor;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    // Pulls your SendGrid API key from Render/application.properties
+    @Value("${app.sendgrid.api-key}")
+    private String sendGridApiKey;
 
-    @Value("${spring.mail.username}")
+    // Make sure this exactly matches the email you verified in SendGrid
+    @Value("${spring.mail.username:event.hub.official.main@gmail.com}")
     private String fromEmail;
 
     @Value("${app.frontend-url}")
@@ -65,6 +69,7 @@ public class EmailService {
         );
         sendEmail(user.getEmail(), subject, body);
     }
+
     @Async
     public void sendOtpEmail(String to, String otp) {
         String subject = "Verify your EventHub Account";
@@ -73,7 +78,6 @@ public class EmailService {
                 "Hello,",
                 "Your 6-digit registration verification code is:",
                 List.of(
-                        // Changed font-size from 36px to 28px
                         "<div style='text-align:center; letter-spacing: 8px; color: #1a1f3a; font-size: 28px; font-weight: bold; margin: 20px 0;'>" + otp + "</div>",
                         "This code will expire in 15 minutes. If you did not request this, please ignore this email."
                 ),
@@ -91,7 +95,6 @@ public class EmailService {
                 "Hello,",
                 "We received a request to reset your password. Your 6-digit reset code is:",
                 List.of(
-                        // Changed font-size from 36px to 28px
                         "<div style='text-align:center; letter-spacing: 8px; color: #1a1f3a; font-size: 28px; font-weight: bold; margin: 20px 0;'>" + otp + "</div>",
                         "This code will expire in 10 minutes. If you did not request a password reset, please ignore this email."
                 ),
@@ -100,6 +103,7 @@ public class EmailService {
         );
         sendEmail(to, subject, body);
     }
+
     @Async
     public void sendWaitlistPromotion(User user, Event event) {
         String subject = "Great News! You Got a Spot: " + event.getTitle();
@@ -152,21 +156,36 @@ public class EmailService {
         sendEmail(host.getEmail(), subject, body);
     }
 
-    private void sendEmail(String to, String subject, String htmlBody) {
+    // 🔥 THE SENDGRID HTTP LOGIC (Bypasses the firewall!)
+    private void sendEmail(String toAddress, String subjectText, String htmlBody) {
+        Email from = new Email(fromEmail);
+        Email to = new Email(toAddress);
+        Content content = new Content("text/html", htmlBody);
+        Mail mail = new Mail(from, subjectText, to, content);
+
+        SendGrid sg = new SendGrid(sendGridApiKey);
+        Request request = new Request();
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlBody, true);
-            mailSender.send(message);
-            log.info("Email sent to: {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+
+            // Makes the standard HTTPS web request
+            Response response = sg.api(request);
+
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                log.info("Email successfully sent via SendGrid to: {}", toAddress);
+            } else {
+                log.warn("SendGrid failed. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
+            }
+
+        } catch (IOException e) {
+            log.error("Failed to send HTTP email to {}. Action succeeded anyway. Error: {}", toAddress, e.getMessage());
         }
     }
 
+    // Unchanged: Your UI template
     private String buildEmailHtml(String heading, String greeting, String intro,
                                   java.util.List<String> details, String ctaText, String ctaUrl) {
         StringBuilder detailsHtml = new StringBuilder();
