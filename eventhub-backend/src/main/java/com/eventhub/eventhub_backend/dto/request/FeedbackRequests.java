@@ -9,7 +9,7 @@ public class FeedbackRequests {
     @Data
     public static class CommentRequest {
         @NotBlank(message = "Message is required")
-        @Size(min = 5, max = 1000, message = "Comment must be between 5 and 1000 characters")
+        @Size(min = 1, max = 1000, message = "Comment must be between 5 and 1000 characters")
         private String message;
     }
 

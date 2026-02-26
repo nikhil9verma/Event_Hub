@@ -1,5 +1,6 @@
 package com.eventhub.eventhub_backend.config;
 
+import org.springframework.beans.factory.annotation.Value; // <-- Added Import
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 import com.eventhub.eventhub_backend.security.JwtAuthenticationFilter;
@@ -36,6 +37,10 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
+    // <-- Injected the frontend URL from application.properties
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -55,14 +60,19 @@ public class SecurityConfig {
 
         return http.build();
     }
+
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return (web) -> web.ignoring().requestMatchers("/uploads/**");
     }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+
+        // <-- Replaced the wildcard "*" with the specific frontendUrl variable
+        config.setAllowedOrigins(List.of(frontendUrl));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

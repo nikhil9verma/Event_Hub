@@ -203,29 +203,31 @@ public class EventService {
         return toRegResponse(saved);
     }
 
+    // Inside your RegistrationService or EventService
     @Transactional
     public void cancelRegistration(Long eventId, Long userId) {
+        // 1. Fetch the Event using your existing helper
         Event event = getEventOrThrow(eventId);
 
+        // 2. The Crucial Security Check: Cannot cancel after the event has started
         if (LocalDateTime.now().isAfter(event.getEventDate())) {
-            throw new BusinessException("Cannot cancel registration after event has started");
+            throw new BusinessException("Cancellations are not allowed after the event has started.");
         }
 
+        // 3. Find the registration using the method you already have in your repository
         Registration registration = registrationRepository.findByUserIdAndEventId(userId, eventId)
-                .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
+                .orElseThrow(() -> new BusinessException("Active registration not found for this event."));
 
-        if (registration.getStatus() == RegistrationStatus.CANCELLED) {
-            throw new BusinessException("Registration is already cancelled");
-        }
+        // 4. Delete the registration
+        registrationRepository.delete(registration);
 
-        boolean wasRegistered = registration.getStatus() == RegistrationStatus.REGISTERED;
-        registration.setStatus(RegistrationStatus.CANCELLED);
-        registrationRepository.save(registration);
+        // Flush immediately so the database knows there is a free spot before checking the waitlist
+        registrationRepository.flush();
 
-        if (wasRegistered) {
-            promoteFromWaitlist(event);
-        }
+        // 5. A spot just opened up! Automatically promote the next person on the waitlist
+        promoteFromWaitlist(event);
 
+        // 6. Update the event status (e.g., changes from FULL back to ACTIVE if no one was on the waitlist)
         updateEventStatus(event);
         eventRepository.save(event);
     }

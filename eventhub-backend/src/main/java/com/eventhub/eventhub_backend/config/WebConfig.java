@@ -17,7 +17,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Value("${app.file-upload.dir}")
     private String uploadDir;
-
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
     @PostConstruct
     public void logUploadPath() {
         String absolutePath = Paths.get(uploadDir).toAbsolutePath().normalize().toString();
@@ -54,7 +55,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/uploads/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins(frontendUrl)
                 .allowedMethods("GET");
     }
 }

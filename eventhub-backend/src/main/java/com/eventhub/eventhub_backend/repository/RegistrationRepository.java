@@ -59,4 +59,6 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     @Modifying
     @Query("DELETE FROM Registration r WHERE r.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
+
+    boolean existsByEventIdAndUserId(Long eventId, Long userId);
 }
