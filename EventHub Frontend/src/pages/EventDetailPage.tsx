@@ -6,7 +6,7 @@ import type { Key } from 'react'
 import toast from 'react-hot-toast'
 import { eventsApi } from '../api/Endpoints'
 import { useAuthStore } from '../store/authStore'
-import { getImageUrl } from '../components/event/EventCard'  // ← shared helper
+import { getImageUrl } from '../components/event/EventCard'
 
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   const [hover, setHover] = useState(0)
@@ -40,13 +40,13 @@ export default function EventDetailPage() {
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['event', Number(id)],
-    queryFn: () => eventsApi.getEvent(Number(id)).then((r: { data: { data: any } }) => r.data.data ?? null),
+    queryFn: () => eventsApi.getEvent(Number(id)).then((r: any) => r.data.data ?? null),
     refetchInterval: 10000,
   })
 
   const { data: commentsData } = useQuery({
     queryKey: ['comments', Number(id)],
-    queryFn: () => eventsApi.getComments(Number(id)).then((r: { data: { data: any } }) => r.data.data ?? null),
+    queryFn: () => eventsApi.getComments(Number(id)).then((r: any) => r.data.data ?? null),
     enabled: !!id,
   })
 
@@ -88,22 +88,7 @@ export default function EventDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Failed'),
   })
 
-  if (isLoading) {
-    return (
-      <div className="page-container py-12">
-        <div className="skeleton h-80 w-full rounded-2xl mb-8" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="skeleton h-10 w-3/4" />
-            <div className="skeleton h-4 w-full" />
-            <div className="skeleton h-4 w-2/3" />
-          </div>
-          <div className="skeleton h-64 rounded-2xl" />
-        </div>
-      </div>
-    )
-  }
-
+  if (isLoading) return <div className="page-container py-12"><div className="skeleton h-80 rounded-2xl" /></div>
   if (!event) return null
 
   const fillPct = Math.min(100, (event.registrationCount / event.maxParticipants) * 100)
@@ -111,92 +96,44 @@ export default function EventDetailPage() {
   const isWaitlisted = event.currentUserRegistrationStatus === 'WAITLIST'
   const isPastDeadline = new Date() > new Date(event.registrationDeadline)
   const isCompleted = event.status === 'COMPLETED'
-  const canRegister = event.status !== 'SUSPENDED' && !isCompleted && !isPastDeadline
+  const isSuspended = event.status === 'SUSPENDED'
+  const canRegister = !isSuspended && !isCompleted && !isPastDeadline
   const isHost = user?.id === event.hostId || user?.role === 'SUPER_ADMIN'
-
-  // Detail page uses posterUrl for hero
-  const heroImage = getImageUrl(event.posterUrl)
 
   return (
     <div className="animate-fade-in">
       {/* Hero poster */}
-      <div
-        className="relative h-72 md:h-96 w-full bg-gradient-to-br from-ink-900 to-ink-700 overflow-hidden"
-        style={heroImage ? {
-          backgroundImage: `url(${heroImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        } : {}}
-      >
+      <div className="relative h-72 md:h-96 w-full bg-ink-900" style={{ backgroundImage: `url(${getImageUrl(event.posterUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="absolute inset-0 bg-ink-900/60 backdrop-blur-[1px]" />
         <div className="absolute inset-0 flex flex-col justify-end p-8">
           <div className="page-container">
-            <div className="flex flex-wrap gap-2 mb-3">
-              <span className="badge bg-white/10 text-white border-white/20 backdrop-blur">
-                {event.category}
-              </span>
-              {event.trending && (
-                <span className="badge bg-gold text-ink-900 border-0 font-semibold">🔥 Trending</span>
-              )}
-              <span className={`badge border-0 ${
-                event.status === 'ACTIVE' ? 'bg-sage/80 text-white' :
-                event.status === 'FULL' ? 'bg-crimson/80 text-white' :
-                event.status === 'COMPLETED' ? 'bg-ink-700/80 text-parchment-200' :
-                'bg-amber-500/80 text-white'
-              }`}>
-                {event.status}
-              </span>
-            </div>
-            <h1 className="font-serif text-3xl md:text-4xl text-white max-w-3xl leading-tight">
-              {event.title}
-            </h1>
+            <h1 className="font-serif text-3xl md:text-4xl text-white max-w-3xl leading-tight">{event.title}</h1>
           </div>
         </div>
       </div>
 
       <div className="page-container py-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Details */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Event Info Card */}
             <div className="card p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { icon: '📅', label: 'Date & Time', val: format(new Date(event.eventDate), 'EEEE, MMMM d, yyyy • h:mm a') },
-                  { icon: '📍', label: 'Venue', val: event.venue },
-                  { icon: '👤', label: 'Hosted by', val: event.hostName },
-                  { icon: '🗓', label: 'Registration Deadline', val: format(new Date(event.registrationDeadline), 'MMM d, yyyy') },
-                ].map(item => (
-                  <div key={item.label} className="flex gap-3">
-                    <span className="text-xl mt-0.5">{item.icon}</span>
-                    <div>
-                      <p className="text-xs text-ink-600/50 font-sans uppercase tracking-wide mb-0.5">{item.label}</p>
-                      <p className="text-ink-900 font-sans text-sm font-medium">{item.val}</p>
-                    </div>
-                  </div>
-                ))}
+                <div className="flex gap-3"><span>📅</span><div><p className="text-xs text-ink-600/50 uppercase">Date</p><p className="text-sm font-medium">{format(new Date(event.eventDate), 'EEEE, MMM d, yyyy')}</p></div></div>
+                <div className="flex gap-3"><span>📍</span><div><p className="text-xs text-ink-600/50 uppercase">Venue</p><p className="text-sm font-medium">{event.venue}</p></div></div>
               </div>
-              {event.averageRating && event.ratingCount > 0 && (
-                <div className="mt-4 pt-4 border-t border-ink-900/8 flex items-center gap-2">
-                  <StarRating value={Math.round(event.averageRating)} />
-                  <span className="font-mono text-sm font-semibold text-ink-900">{event.averageRating.toFixed(1)}</span>
-                  <span className="text-ink-600/50 text-sm font-sans">({event.ratingCount} ratings)</span>
-                </div>
-              )}
             </div>
 
+            {/* Discussion/Comments Section */}
             <div className="card p-6">
-              <h2 className="section-title mb-4">About this Event</h2>
-              <p className="text-ink-700 font-sans leading-relaxed whitespace-pre-wrap">{event.description}</p>
-            </div>
-
-            <div className="card p-6">
-              <h2 className="section-title mb-4">Comments</h2>
-              {isCompleted && isAuthenticated && (
+              <h2 className="section-title mb-4">Attendee Discussion</h2>
+              
+              {/* Comment Input: Show if Registered and event not Suspended */}
+              {isAuthenticated && isRegistered && !isSuspended ? (
                 <div className="mb-6 space-y-3">
                   <textarea
                     value={comment}
                     onChange={e => setComment(e.target.value)}
-                    placeholder="Share your experience at this event..."
+                    placeholder="Ask a question or share your thoughts..."
                     rows={3}
                     className="input-field resize-none text-sm"
                   />
@@ -205,124 +142,71 @@ export default function EventDetailPage() {
                     disabled={!comment.trim() || commentMutation.isPending}
                     className="btn-primary text-sm py-2"
                   >
-                    {commentMutation.isPending ? 'Posting...' : 'Post Comment'}
+                    {commentMutation.isPending ? 'Posting...' : 'Post Message'}
                   </button>
                 </div>
+              ) : (
+                !isRegistered && !isSuspended && (
+                  <p className="text-ink-600/50 text-sm italic mb-6">
+                    Only registered attendees can participate in the discussion.
+                  </p>
+                )
               )}
-              {!isCompleted && (
-                <p className="text-ink-600/50 text-sm font-sans italic mb-4">
-                  Comments and ratings are available after the event concludes.
-                </p>
-              )}
+
+              {/* Comments List */}
               <div className="space-y-4">
-                {commentsData?.content.map((c: {
-                  id: Key | null | undefined
-                  userName: string
-                  createdAt: string | number | Date
-                  message: string
-                }) => (
+                {commentsData?.content?.map((c: any) => (
                   <div key={c.id} className="flex gap-3 pb-4 border-b border-ink-900/5 last:border-0">
                     <div className="w-8 h-8 bg-ink-900 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-gold text-xs font-serif font-bold">
-                        {c.userName[0]?.toUpperCase()}
-                      </span>
+                      <span className="text-gold text-xs font-serif font-bold">{c.userName[0]?.toUpperCase()}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-sans font-medium text-sm text-ink-900">{c.userName}</span>
-                        <span className="text-xs text-ink-600/40 font-sans">
-                          {format(new Date(c.createdAt), 'MMM d')}
-                        </span>
+                        <span className="text-xs text-ink-600/40">{format(new Date(c.createdAt), 'MMM d, h:mm a')}</span>
                       </div>
-                      <p className="text-ink-700 font-sans text-sm leading-relaxed">{c.message}</p>
+                      <p className="text-ink-700 font-sans text-sm">{c.message}</p>
                     </div>
                   </div>
                 ))}
-                {commentsData?.content.length === 0 && (
-                  <p className="text-ink-600/40 text-sm font-sans italic">No comments yet.</p>
-                )}
+                {commentsData?.content?.length === 0 && <p className="text-ink-600/40 text-sm italic">No messages yet.</p>}
               </div>
             </div>
           </div>
 
-          {/* Right: Sidebar */}
+          {/* Sidebar */}
           <div className="space-y-5">
             <div className="card p-5 sticky top-24">
               <div className="mb-4">
-                <div className="flex justify-between text-sm font-sans mb-2">
-                  <span className="text-ink-600/60">
-                    {event.availableSeats > 0 ? `${event.availableSeats} seats left` : 'Fully booked'}
-                  </span>
-                  <span className="font-mono text-ink-600/60">
-                    {event.registrationCount}/{event.maxParticipants}
-                  </span>
+                <div className="progress-bar mb-2">
+                  <div className={`progress-fill ${fillPct >= 100 ? 'bg-crimson' : 'bg-sage'}`} style={{ width: `${fillPct}%` }} />
                 </div>
-                <div className="progress-bar">
-                  <div
-                    className={`progress-fill ${fillPct >= 100 ? 'bg-crimson' : fillPct >= 75 ? 'bg-amber-500' : 'bg-sage'}`}
-                    style={{ width: `${fillPct}%` }}
-                  />
-                </div>
-                {event.waitlistCount > 0 && (
-                  <p className="text-xs text-amber-600 font-sans mt-1">+{event.waitlistCount} on waitlist</p>
-                )}
+                <p className="text-xs text-ink-600/60 text-center">{event.registrationCount}/{event.maxParticipants} Registered</p>
               </div>
 
               {isAuthenticated ? (
                 isRegistered ? (
-                  <button
-                    onClick={() => cancelMutation.mutate()}
-                    disabled={cancelMutation.isPending}
-                    className="w-full py-3 rounded-xl border border-crimson/30 text-crimson font-sans font-medium hover:bg-crimson/5 transition-colors disabled:opacity-50 mb-3"
-                  >
-                    {cancelMutation.isPending ? 'Cancelling...' : '✓ Registered — Cancel'}
+                  <button onClick={() => cancelMutation.mutate()} className="w-full py-3 rounded-xl border border-crimson text-crimson hover:bg-crimson/5 transition-colors mb-3">
+                    ✓ Registered — Cancel
                   </button>
                 ) : isWaitlisted ? (
-                  <button
-                    onClick={() => cancelMutation.mutate()}
-                    disabled={cancelMutation.isPending}
-                    className="w-full py-3 rounded-xl border border-amber-400/40 text-amber-600 font-sans font-medium hover:bg-amber-50 transition-colors disabled:opacity-50 mb-3"
-                  >
-                    {cancelMutation.isPending ? 'Removing...' : '⏳ On Waitlist — Leave'}
+                  <button onClick={() => cancelMutation.mutate()} className="w-full py-3 rounded-xl border border-amber-500 text-amber-600 mb-3">
+                    ⏳ Waitlisted — Leave
                   </button>
                 ) : canRegister ? (
-                  <button
-                    onClick={() => registerMutation.mutate()}
-                    disabled={registerMutation.isPending}
-                    className="w-full btn-gold py-3 rounded-xl text-base mb-3"
-                  >
-                    {registerMutation.isPending ? 'Processing...' :
-                      event.status === 'FULL' ? 'Join Waitlist' : 'Register Now →'}
+                  <button onClick={() => registerMutation.mutate()} className="w-full btn-gold py-3 rounded-xl mb-3">
+                    {event.status === 'FULL' ? 'Join Waitlist' : 'Register Now →'}
                   </button>
-                ) : (
-                  <div className="bg-parchment-100 rounded-xl p-3 text-center text-ink-600/50 text-sm font-sans mb-3">
-                    {isCompleted ? 'Event Completed' : isPastDeadline ? 'Registration Closed' : 'Unavailable'}
-                  </div>
-                )
+                ) : <div className="p-3 text-center text-ink-600/50 text-sm">{isCompleted ? 'Event Completed' : 'Closed'}</div>
               ) : (
-                <Link to="/login" className="w-full btn-gold py-3 rounded-xl text-base text-center block mb-3">
-                  Sign in to Register
-                </Link>
+                <Link to="/login" className="w-full btn-gold py-3 rounded-xl text-center block mb-3">Sign in to Register</Link>
               )}
 
+              {/* Rating Section: Keep restricted to Completed Events */}
               {isCompleted && isAuthenticated && isRegistered && (
                 <div className="border-t border-ink-900/8 pt-3">
-                  <p className="text-xs text-ink-600/50 font-sans mb-2">Rate this event:</p>
-                  <StarRating value={rating} onChange={(v) => {
-                    setRating(v)
-                    ratingMutation.mutate(v)
-                  }} />
-                </div>
-              )}
-
-              {isHost && (
-                <div className="border-t border-ink-900/8 pt-3 mt-3 space-y-2">
-                  <Link to={`/events/${id}/analytics`} className="btn-outline w-full text-center text-sm block py-2">
-                    📊 View Analytics
-                  </Link>
-                  <Link to={`/events/${id}/edit`} className="btn-ghost w-full text-center text-sm block py-2">
-                    ✏️ Edit Event
-                  </Link>
+                  <p className="text-xs text-ink-600/50 mb-2">Rate your experience:</p>
+                  <StarRating value={rating} onChange={(v) => { setRating(v); ratingMutation.mutate(v); }} />
                 </div>
               )}
             </div>

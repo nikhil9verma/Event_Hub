@@ -22,13 +22,24 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Health': 'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
-// Shared helper — used by EventCard, EventDetailPage, CreateEventPage
+
+
 export const getImageUrl = (url: string | undefined | null): string | undefined => {
   if (!url) return undefined;
+  
+  // If it's already a full link (like a Google profile picture), return it directly
   if (url.startsWith('http')) return url;
   
-  // This prefix is the "bridge" between your Frontend and Backend ports
-  return `/api${url}`; 
+  // Point directly to your local Spring Boot backend
+  const backendUrl = import.meta.env.VITE_API_BASE_URL||'http://localhost:8080';
+  
+  // Prevent double '/uploads/' just in case your DB stored it that way
+  if (url.startsWith('uploads/')) {
+    return `${backendUrl}/${url}`;
+  }
+  
+  // Standard format based on your WebConfig
+  return `${backendUrl}/uploads/${url}`; 
 };
 
 function Countdown({ date }: { date: string }) {
