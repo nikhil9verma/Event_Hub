@@ -54,8 +54,8 @@ public class AuthService {
             throw new BusinessException("Email is already registered");
         }
 
-        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
-
+//        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
+            String otp="123456";
         // Save to temporary table instead of User table
         tokenRepository.deleteByEmail(request.getEmail());
         tokenRepository.save(VerificationToken.builder()
@@ -68,8 +68,9 @@ public class AuthService {
                 .expiryDate(LocalDateTime.now().plusMinutes(15))
                 .build());
 
-        emailService.sendOtpEmail(request.getEmail(), otp);
-        return "OTP sent to your email. Verify to complete registration.";
+//        emailService.sendOtpEmail(request.getEmail(), otp);
+//        return "OTP sent to your email. Verify to complete registration.";
+        return "OTP bypassed. Use 123456 to verify.";
     }
 
     @Transactional
@@ -322,8 +323,8 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("No account found with this email"));
 
         // Generate 6-digit OTP
-        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
-
+//        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
+        String otp="123456";
         // Save OTP to the temporary token table
         tokenRepository.deleteByEmail(email);
         tokenRepository.save(VerificationToken.builder()
@@ -332,8 +333,9 @@ public class AuthService {
                 .expiryDate(LocalDateTime.now().plusMinutes(10))
                 .build());
 
-        emailService.sendForgotPasswordOtp(email, otp);
-        return "Password reset OTP sent to your email.";
+//        emailService.sendForgotPasswordOtp(email, otp);
+//        return "Password reset OTP sent to your email.";
+        return "OTP bypassed. Use 123456 to reset your password.";
     }
 
     @Transactional
