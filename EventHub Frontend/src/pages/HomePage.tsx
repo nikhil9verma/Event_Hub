@@ -48,7 +48,7 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
           </span>
           
           <h1 className="font-serif text-5xl md:text-6xl text-white mb-4 leading-tight">
-            {user ? `Welcome back, ${user.name.split(' ')[0]}.` : 'Discover What\'s'}
+            {user ? `Welcome back, ${user?.name?.split(' ')[0]}.` : 'Discover What\'s'}
             {!user && <span className="block text-gold">Happening on Campus</span>}
           </h1>
           
