@@ -8,7 +8,6 @@ import com.eventhub.eventhub_backend.service.AuthService;
 import com.eventhub.eventhub_backend.service.FileStorageService;
 import com.eventhub.eventhub_backend.util.SecurityUtils;
 import com.eventhub.eventhub_backend.dto.response.HostRequestResponse;
-
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,13 +25,26 @@ public class AuthController {
 
     // ─── Registration & OTP ──────────────────────────────────────────────────
 
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<String>> register(
-            @Valid @RequestBody AuthRequests.Register request) {
-        return ResponseEntity.status(201)
-                .body(ApiResponse.success("Registration initiated", authService.register(request)));
-    }
+//    @PostMapping("/register")
+//    public ResponseEntity<ApiResponse<String>> register(
+//            @Valid @RequestBody AuthRequests.Register request) {
+//        return ResponseEntity.status(201)
+//                .body(ApiResponse.success("Registration initiated", authService.register(request)));
+//    }
+@PostMapping("/register")
+public ResponseEntity<ApiResponse<AuthResponse>> register(
+        @Valid @RequestBody AuthRequests.Register request) {
 
+    // 1. Initiate registration (creates the user in DB)
+    authService.register(request);
+
+    // 2. Immediately verify them using your master OTP "123456"
+    // This generates the actual AuthResponse (JWT Token)
+    AuthResponse authResponse = authService.verifyAndRegister(request.getEmail(), "123456");
+
+    return ResponseEntity.status(201)
+            .body(ApiResponse.success("Registration and Login successful!", authResponse));
+}
     @PostMapping("/verify-registration")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyRegistration(
             @RequestParam String email,
