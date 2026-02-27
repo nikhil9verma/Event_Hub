@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/:path*",
+      "destination": "http://eventhub-env.eba-tzeqmgfk.us-east-1.elasticbeanstalk.com/:path*"
     }
   ]
 }
