@@ -1,96 +1,57 @@
 package com.eventhub.eventhub_backend.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.eventhub.eventhub_backend.exception.BusinessException;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
-@Slf4j
 public class FileStorageService {
 
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of(
-            "image/jpeg", "image/jpg", "image/png", "image/webp"
-    );
+    private final Cloudinary cloudinary;
 
-    private final Path uploadPath;
+    // Initialize Cloudinary with your credentials
+    public FileStorageService(
+            @Value("${cloudinary.cloud-name}") String cloudName,
+            @Value("${cloudinary.api-key}") String apiKey,
+            @Value("${cloudinary.api-secret}") String apiSecret) {
 
-    public FileStorageService(@Value("${app.file-upload.dir}") String uploadDir) {
-        this.uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.uploadPath);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create upload directory", e);
-        }
+        this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+                "cloud_name", cloudName,
+                "api_key", apiKey,
+                "api_secret", apiSecret,
+                "secure", true));
     }
 
-    public String storeFile(MultipartFile file, String subfolder) {
-        if (file.isEmpty()) {
-            throw new BusinessException("File is empty");
-        }
-
-        String contentType = file.getContentType();
-        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new BusinessException("Only JPEG, PNG, and WebP images are allowed");
-        }
-
-        // Note: You can also enforce this globally in application.properties
-        // using spring.servlet.multipart.max-file-size=10MB
-        if (file.getSize() > 10 * 1024 * 1024) {
-            throw new BusinessException("File size exceeds 10MB limit");
-        }
-
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "");
-        String extension = originalFilename.contains(".")
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : ".jpg";
-        String filename = UUID.randomUUID() + extension;
-
+    public String storeFile(MultipartFile file, String folderName) {
         try {
-            Path targetDir = this.uploadPath.resolve(subfolder);
-            Files.createDirectories(targetDir);
-            Path targetPath = targetDir.resolve(filename);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            // Uploads to a specific folder in Cloudinary (e.g., eventhub/avatars)
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    ObjectUtils.asMap("folder", "eventhub/" + folderName));
 
-            // 🔥 FIX: Return just the relative folder and filename (e.g., "cards/123.png")
-            return subfolder + "/" + filename;
-
+            // Returns the permanent, secure URL
+            return uploadResult.get("secure_url").toString();
         } catch (IOException e) {
-            log.error("Failed to store file: {}", e.getMessage());
-            throw new BusinessException("Failed to store file. Please try again.");
+            throw new BusinessException("Failed to upload image to Cloudinary");
         }
     }
 
     public void deleteFile(String fileUrl) {
-        if (fileUrl == null || fileUrl.trim().isEmpty()) return;
-
-        // 🔥 FIX: Handle both new clean paths ("cards/123.png") and legacy paths ("/uploads/cards/123.png")
-        String cleanPath = fileUrl.startsWith("/uploads/")
-                ? fileUrl.substring("/uploads/".length())
-                : fileUrl;
-
         try {
-            Path filePath = this.uploadPath.resolve(cleanPath).normalize();
+            // Extracts the public ID from the URL so Cloudinary knows which file to delete
+            String[] parts = fileUrl.split("/");
+            String publicIdWithExtension = parts[parts.length - 1];
+            String folderPath = parts[parts.length - 3] + "/" + parts[parts.length - 2];
+            String publicId = folderPath + "/" + publicIdWithExtension.substring(0, publicIdWithExtension.lastIndexOf('.'));
 
-            // Security Enhancement: Prevent Path Traversal attacks (e.g., passing "../../windows/system32")
-            if (!filePath.startsWith(this.uploadPath)) {
-                log.warn("Security Warning: Attempted path traversal deletion for: {}", fileUrl);
-                return;
-            }
-
-            Files.deleteIfExists(filePath);
-        } catch (IOException e) {
-            log.warn("Failed to delete file: {}", fileUrl);
+            cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+        } catch (Exception e) {
+            System.out.println("Could not delete old image: " + e.getMessage());
         }
     }
 }
