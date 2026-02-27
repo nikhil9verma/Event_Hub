@@ -6,7 +6,6 @@ import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/Endpoints'
 import { useAuthStore } from '../store/authStore'
-import { useState } from 'react'
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -25,38 +24,30 @@ type RegisterForm = z.infer<typeof schema>
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
   
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(schema),
   })
 
-  // 1. Initial Registration Mutation
+  // 1. Modified Registration Mutation (Bypasses OTP)
   const registerMutation = useMutation({
     mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => authApi.register(data),
-    onSuccess: (_, variables) => {
-      setRegisteredEmail(variables.email);
-      setIsVerifying(true);
-      toast.success('OTP sent to your email!');
+    onSuccess: (res: any) => {
+      // Assuming your backend now returns the AuthResponse directly in res.data.data
+      const authData = res.data.data;
+      
+      // Save token and user to Zustand store
+      setAuth(authData);
+      
+      // Navigate straight to dashboard/home
+      navigate('/');
+      toast.success('Welcome to EventHub!');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Registration failed')
     }
   });
-
-  // 2. OTP Verification Mutation
-  const verifyMutation = useMutation({
-    mutationFn: (otp: string) => authApi.verifyRegistration(registeredEmail, otp),
-    onSuccess: (res: any) => {
-      setAuth(res.data.data);
-      navigate('/');
-      toast.success('Welcome to EventHub!');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Invalid or expired OTP')
-    }
-  });
+  
 
   const fields = [
     { name: 'name' as const, label: 'Full Name', type: 'text', placeholder: 'Your full name' },
@@ -67,46 +58,6 @@ export default function RegisterPage() {
     { name: 'confirmPassword' as const, label: 'Confirm Password', type: 'password', placeholder: '••••••••' },
   ]
 
-  // === OTP VIEW ===
-  if (isVerifying) {
-    return (
-      <div className="min-h-screen bg-ink-900 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm text-center">
-          <div className="w-16 h-16 bg-gold rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">✉️</span>
-          </div>
-          <h1 className="font-serif text-3xl text-white mb-2">Check your email</h1>
-          <p className="text-parchment-200/50 font-sans text-sm mb-8">
-            We sent a 6-digit code to <br />
-            <strong className="text-white">{registeredEmail}</strong>
-          </p>
-
-          <input
-            type="text"
-            maxLength={6}
-            placeholder="000000"
-            className="w-full text-center tracking-[0.5em] text-3xl px-4 py-4 rounded-xl bg-ink-800 border border-ink-700 text-white font-mono focus:outline-none focus:border-gold/60 transition-all mb-4"
-            onChange={(e) => {
-              const val = e.target.value;
-              // Auto-submit when 6 digits are entered
-              if (val.length === 6) {
-                verifyMutation.mutate(val);
-              }
-            }}
-          />
-          
-          <button 
-            onClick={() => setIsVerifying(false)}
-            className="text-parchment-200/40 text-sm hover:text-white transition-colors"
-          >
-            ← Back to Registration
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // === REGISTRATION VIEW ===
   return (
     <div className="min-h-screen bg-ink-900 flex items-center justify-center p-8">
       <div className="w-full max-w-sm">
@@ -150,7 +101,7 @@ export default function RegisterPage() {
             disabled={registerMutation.isPending}
             className="w-full btn-gold py-3.5 rounded-xl text-base mt-2"
           >
-            {registerMutation.isPending ? 'Sending Code...' : 'Create Account'}
+            {registerMutation.isPending ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
