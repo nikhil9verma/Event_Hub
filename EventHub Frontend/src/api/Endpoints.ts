@@ -51,8 +51,10 @@ export const authApi = {
   uploadAvatar: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
-    return api.post('/auth/avatar', form)
+    // FIX: Explicitly override the global application/json header
+    return api.post('/auth/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   },
   
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
@@ -84,15 +86,19 @@ export const eventsApi = {
   uploadPoster: (id: number, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
-    return api.post(`/events/${id}/poster`, form)
+    // FIX: Explicitly override the global application/json header
+    return api.post(`/events/${id}/poster`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   },
 
   uploadCardImage: (id: number, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
-    return api.post(`/events/${id}/card-image`, form)
+    // FIX: Explicitly override the global application/json header
+    return api.post(`/events/${id}/card-image`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   },
 
   getMyEvents: (page: number) =>
