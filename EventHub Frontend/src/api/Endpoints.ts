@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 // const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
-const BASE_URL="/api";
+const BASE_URL = "/api";
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -27,34 +27,40 @@ api.interceptors.response.use(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
-  // Add these inside export const authApi = { ... }
   forgotPassword: (email: string) => 
     api.post(`/auth/forgot-password?email=${encodeURIComponent(email)}`),
     
   resetPassword: (data: { email: string; otp: string; newPassword: string }) =>
     api.post(`/auth/reset-password?email=${encodeURIComponent(data.email)}&otp=${data.otp}&newPassword=${encodeURIComponent(data.newPassword)}`),
+    
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
+    
   register: (data: { name: string; email: string; password: string }) =>
-    api.post('/auth/register', data), // Now returns a string message
+    api.post('/auth/register', data),
     
   verifyRegistration: (email: string, otp: string) =>
     api.post(`/auth/verify-registration?email=${email}&otp=${otp}`),
+    
   getMe: () =>
-    api.get('/auth/profile'),                                    // ← /profile
+    api.get('/auth/profile'),
+    
   updateProfile: (data: { name: string }) =>
-    api.patch('/auth/profile', data),                           // ← PATCH /profile
+    api.patch('/auth/profile', data),
+    
   uploadAvatar: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post('/auth/avatar', form, {                     // ← /avatar
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
+    return api.post('/auth/avatar', form)
   },
+  
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
-    api.post('/auth/password', data),                           // ← /password
+    api.post('/auth/password', data),
+    
   applyForHost: () => api.post('/auth/apply-host'),
-  deleteAccount: () => api.delete('/auth/account'),             // ← /account
+  
+  deleteAccount: () => api.delete('/auth/account'),
 }
 
 
@@ -71,23 +77,22 @@ export const eventsApi = {
 
   updateEvent: (id: number, data: Record<string, any>) =>
     api.put(`/events/${id}`, data),
-  // Inside export const eventsApi = { ... }
+    
   getAttendees: (id: number) =>
     api.get(`/events/${id}/attendees`),
+    
   uploadPoster: (id: number, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post(`/events/${id}/poster`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
+    return api.post(`/events/${id}/poster`, form)
   },
 
   uploadCardImage: (id: number, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post(`/events/${id}/card-image`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // FIX: Removed manual headers so Axios can generate the correct multipart boundary
+    return api.post(`/events/${id}/card-image`, form)
   },
 
   getMyEvents: (page: number) =>
@@ -109,7 +114,7 @@ export const eventsApi = {
     api.post(`/events/${id}/comments`, { message }),
 
   rateEvent: (id: number, stars: number) =>
-    api.post(`/events/${id}/rating`, { stars }),  // ← singular "rating"
+    api.post(`/events/${id}/rating`, { stars }),
 
   getAnalytics: (id: number) =>
     api.get(`/events/${id}/analytics`),
@@ -124,8 +129,8 @@ export const notificationsApi = {
     api.get('/notifications/unread-count'),
 
   markRead: (id: number) =>
-    api.patch(`/notifications/${id}/read`),           // ← PATCH
+    api.patch(`/notifications/${id}/read`),
 
   markAllRead: () =>
-    api.post('/notifications/mark-all-read'),         // ← correct path
+    api.post('/notifications/mark-all-read'),
 }
