@@ -18,10 +18,9 @@ const schema = z.object({
   category: z.string().min(1, 'Category is required'),
   maxParticipants: z.coerce.number().min(1).max(10000),
   registrationDeadline: z.string().min(1, 'Registration deadline is required'),
-
-  // THE FIX: Use z.any() to prevent Zod from blocking the form when the checkbox is off
   reminderHours: z.any(),
 })
+
 type EventFormInput = z.input<typeof schema>
 type EventForm = z.output<typeof schema>
 
@@ -59,7 +58,8 @@ export default function CreateEventPage() {
     }
   }, [existingEvent])
 
-  const { register, handleSubmit, formState: { errors } } = useForm<EventFormInput, any, EventForm>({
+  // ADDED setError here to manually bind backend validation errors to the UI
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<EventFormInput, any, EventForm>({
     resolver: zodResolver(schema),
     values: existingEvent ? {
       title: existingEvent.title,
@@ -79,7 +79,6 @@ export default function CreateEventPage() {
         ...data,
         eventDate: data.eventDate + ':00',
         registrationDeadline: data.registrationDeadline + ':00',
-        // Send null if they disabled the reminder
         reminderHours: enableReminder ? Number(data.reminderHours) : null,
       }
       const res = isEditing
@@ -97,10 +96,30 @@ export default function CreateEventPage() {
       navigate(`/events/${res.data.data.id}`)
     },
     onError: (err: any) => {
+      // THE FIX: Catch 422 errors and bind them to the specific form fields
+      if (err.response?.status === 422 && err.response.data?.data) {
+        const backendErrors = err.response.data.data;
+        
+        // Loop through the backend errors and set them in React Hook Form
+        Object.keys(backendErrors).forEach((field) => {
+          setError(field as keyof EventFormInput, {
+            type: 'server',
+            message: backendErrors[field],
+          });
+        });
+        
+        toast.error("Please fix the highlighted errors.");
+        return;
+      }
+
+      // Fallback for general server errors (500s)
       const msg = err.response?.data?.message || err.response?.data?.data
       toast.error(typeof msg === 'object' ? Object.values(msg).join(', ') : msg || 'Failed to save event')
     },
   })
+
+  // Get current date/time to block past dates in the HTML input
+  const minDateTime = new Date().toISOString().slice(0, 16)
 
   return (
     <div className="page-container py-10 max-w-3xl animate-fade-in">
@@ -119,7 +138,7 @@ export default function CreateEventPage() {
         <div className="card p-5 space-y-5">
           <h2 className="font-serif text-lg">Event Images</h2>
 
-          {/* Hero poster — shown on event detail page */}
+          {/* Hero poster */}
           <div>
             <label className="label mb-2 block">
               Detail Page Hero Image
@@ -166,7 +185,7 @@ export default function CreateEventPage() {
             )}
           </div>
 
-          {/* Card thumbnail — shown on event listing cards */}
+          {/* Card thumbnail */}
           <div>
             <label className="label mb-2 block">
               Event Card Thumbnail
@@ -259,12 +278,14 @@ export default function CreateEventPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Event Date & Time</label>
-              <input {...register('eventDate')} type="datetime-local" className="input-field" />
+              {/* Added min constraint to prevent user from picking past dates natively */}
+              <input {...register('eventDate')} type="datetime-local" min={minDateTime} className="input-field" />
               {errors.eventDate && <p className="text-crimson text-xs mt-1 font-sans">{errors.eventDate.message as string}</p>}
             </div>
             <div>
               <label className="label">Registration Deadline</label>
-              <input {...register('registrationDeadline')} type="datetime-local" className="input-field" />
+              {/* Added min constraint to prevent user from picking past dates natively */}
+              <input {...register('registrationDeadline')} type="datetime-local" min={minDateTime} className="input-field" />
               {errors.registrationDeadline && <p className="text-crimson text-xs mt-1 font-sans">{errors.registrationDeadline.message as string}</p>}
             </div>
           </div>
