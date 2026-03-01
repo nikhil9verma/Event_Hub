@@ -50,8 +50,9 @@ export default function AdminDashboardPage() {
           {requests.map((req) => (
             <div key={req.id} className="p-4 border rounded shadow-sm flex justify-between items-center">
               <div>
-                <p className="font-bold">{req.user.name}</p>
-                <p className="text-sm text-gray-600">{req.user.email}</p>
+                {/* FIX: Added question marks here! */}
+                <p className="font-bold">{req.user?.name || "Unknown User"}</p>
+                <p className="text-sm text-gray-600">{req.user?.email || "No email provided"}</p>
                 <p className="text-sm italic mt-1">Status: {req.status}</p>
               </div>
               <div className="space-x-2">
