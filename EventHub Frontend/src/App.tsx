@@ -12,6 +12,7 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import MyEventsPage from './pages/MyEventPage'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ForgotPasswordPage from './pages/ForgotPassword'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const userRole = useAuthStore((s) => s.user?.role)
@@ -58,6 +59,11 @@ export default function App() {
           <Route path="my-events" element={
             <ProtectedRoute roles={['HOST', 'SUPER_ADMIN']}>
               <MyEventsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="admin" element={
+            <ProtectedRoute roles={['SUPER_ADMIN']}>
+              <AdminDashboardPage />
             </ProtectedRoute>
           } />
         </Route>

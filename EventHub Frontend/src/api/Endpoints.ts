@@ -139,3 +139,17 @@ export const notificationsApi = {
   markAllRead: () =>
     api.post('/notifications/mark-all-read'),
 }
+// ─── Admin ────────────────────────────────────────────────────────────────────
+export const adminApi = {
+  getPendingHostRequests: () => 
+    api.get('/admin/host-requests'),
+    
+  approveHost: (id: number) => 
+    api.post(`/admin/host-requests/${id}/approve`),
+    
+  rejectHost: (id: number) => 
+    api.post(`/admin/host-requests/${id}/reject`),
+    
+  purgeUser: (email: string) => 
+    api.delete(`/admin/users/purge?email=${encodeURIComponent(email)}`),
+}
