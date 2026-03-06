@@ -71,7 +71,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // <-- Replaced the wildcard "*" with the specific frontendUrl variable
-        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedOrigins(List.of(frontendUrl,"http://localhost:5173"));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

@@ -2,19 +2,14 @@ package com.eventhub.eventhub_backend.service;
 
 import com.eventhub.eventhub_backend.entity.Event;
 import com.eventhub.eventhub_backend.entity.User;
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -22,12 +17,10 @@ import java.util.List;
 @Slf4j
 public class EmailService {
 
-    // Pulls your SendGrid API key from Render/application.properties
-    @Value("${app.sendgrid.api-key}")
-    private String sendGridApiKey;
+    @Value("${app.resend.api-key}")
+    private String resendApiKey;
 
-    // Make sure this exactly matches the email you verified in SendGrid
-    @Value("${spring.mail.username:event.hub.official.main@gmail.com}")
+    @Value("${app.resend.from-email}")
     private String fromEmail;
 
     @Value("${app.frontend-url}")
@@ -156,32 +149,23 @@ public class EmailService {
         sendEmail(host.getEmail(), subject, body);
     }
 
-    // 🔥 THE SENDGRID HTTP LOGIC (Bypasses the firewall!)
+    // 🔥 RESEND API CALL LOGIC
     private void sendEmail(String toAddress, String subjectText, String htmlBody) {
-        Email from = new Email(fromEmail);
-        Email to = new Email(toAddress);
-        Content content = new Content("text/html", htmlBody);
-        Mail mail = new Mail(from, subjectText, to, content);
-
-        SendGrid sg = new SendGrid(sendGridApiKey);
-        Request request = new Request();
-
         try {
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
+            Resend resend = new Resend(resendApiKey);
 
-            // Makes the standard HTTPS web request
-            Response response = sg.api(request);
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from(fromEmail)
+                    .to(toAddress)
+                    .subject(subjectText)
+                    .html(htmlBody)
+                    .build();
 
-            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-                log.info("Email successfully sent via SendGrid to: {}", toAddress);
-            } else {
-                log.warn("SendGrid failed. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
-            }
+            CreateEmailResponse response = resend.emails().send(params);
+            log.info("Email successfully sent via Resend to: {}. ID: {}", toAddress, response.getId());
 
-        } catch (IOException e) {
-            log.error("Failed to send HTTP email to {}. Action succeeded anyway. Error: {}", toAddress, e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to send email via Resend to {}. Error: {}", toAddress, e.getMessage());
         }
     }
 

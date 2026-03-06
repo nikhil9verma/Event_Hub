@@ -19,8 +19,13 @@ const schema = z.object({
   maxParticipants: z.coerce.number().min(1).max(10000),
   registrationDeadline: z.string().min(1, 'Registration deadline is required'),
 
-  // THE FIX: Use z.any() to prevent Zod from blocking the form when the checkbox is off
-  reminderHours: z.any(),
+  // THE FIX: Properly validate reminder hours but allow it to be empty when disabled
+  reminderHours: z.coerce
+    .number()
+    .min(1, 'Must be at least 1 hour')
+    .max(72, 'Cannot exceed 72 hours')
+    .optional()
+    .or(z.literal('')),
 })
 type EventFormInput = z.input<typeof schema>
 type EventForm = z.output<typeof schema>
@@ -44,7 +49,7 @@ export default function CreateEventPage() {
   const cardRef = useRef<HTMLInputElement>(null)
 
   // Reminder Email Toggle State
-  const [enableReminder, setEnableReminder] = useState(true)
+  const [enableReminder, setEnableReminder] = useState(false)
 
   const { data: existingEvent } = useQuery({
     queryKey: ['event', Number(id)],
@@ -79,8 +84,8 @@ export default function CreateEventPage() {
         ...data,
         eventDate: data.eventDate + ':00',
         registrationDeadline: data.registrationDeadline + ':00',
-        // Send null if they disabled the reminder
-        reminderHours: enableReminder ? Number(data.reminderHours) : null,
+        
+        reminderHours: (enableReminder && data.reminderHours) ? Number(data.reminderHours) : null,
       }
       const res = isEditing
         ? await eventsApi.updateEvent(Number(id), payload)

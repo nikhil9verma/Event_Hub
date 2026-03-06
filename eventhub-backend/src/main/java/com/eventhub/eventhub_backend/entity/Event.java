@@ -4,6 +4,7 @@ package com.eventhub.eventhub_backend.entity;
 import com.eventhub.eventhub_backend.enums.EventStatus;
 import com.eventhub.eventhub_backend.enums.RegistrationStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -59,8 +60,8 @@ public class Event {
     private EventStatus status = EventStatus.ACTIVE;
 
 
-    private Integer reminderHours = 2;
-
+    @Min(value = 1, message = "Reminder hours must be at least 1")
+    private Integer reminderHours;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = true)
     private User host;

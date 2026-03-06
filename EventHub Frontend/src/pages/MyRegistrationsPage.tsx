@@ -1,90 +1,109 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
-import { eventsApi } from '../api/Endpoints'
-import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useMutation } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
+import { authApi } from '../api/Endpoints' 
 
-const STATUS_STYLES: Record<string, string> = {
-  REGISTERED: 'badge-sage',
-  WAITLIST: 'bg-amber-50 text-amber-700 border-amber-200',
-  CANCELLED: 'bg-gray-50 text-gray-500 border-gray-200',
-}
+const schema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  course: z.string().min(2, 'Course is required (e.g. B.Tech CSE)'),
+  batch: z.string().min(4, 'Batch year is required (e.g. 2026)'),
+  confirmPassword: z.string(),
+}).refine(d => d.password === d.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})
 
-export default function MyRegistrationsPage() {
-  const [page, setPage] = useState(0)
+type RegisterForm = z.infer<typeof schema>
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['myRegistrations', page],
-    queryFn: () => eventsApi.getMyRegistrations(page).then((r: { data: { data: any } }) => r.data.data??null),
+export default function RegisterPage() {
+  const navigate = useNavigate()
+  
+  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
+    resolver: zodResolver(schema),
   })
 
-  const registrations = data?.content ?? []
+  // 1. Updated Registration Mutation (Routes to OTP Verification)
+  const registerMutation = useMutation({
+    mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => authApi.register(data),
+    // The "variables" parameter automatically contains the data submitted in the form
+    onSuccess: (res, variables) => {
+      toast.success('Account created! Please check your email for the verification code.');
+      // Redirect to verify page and securely pass the email in the URL
+      navigate(`/verify-email?email=${encodeURIComponent(variables.email)}`);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Registration failed')
+    }
+  });
+
+  const fields = [
+    { name: 'name' as const, label: 'Full Name', type: 'text', placeholder: 'Your full name' },
+    { name: 'email' as const, label: 'Email Address', type: 'email', placeholder: 'you@university.edu' },
+    { name: 'course' as const, label: 'Course', type: 'text', placeholder: 'e.g. B.Tech CSE' }, 
+    { name: 'batch' as const, label: 'Batch Year', type: 'text', placeholder: 'e.g. 2026' },
+    { name: 'password' as const, label: 'Password', type: 'password', placeholder: '••••••••' },
+    { name: 'confirmPassword' as const, label: 'Confirm Password', type: 'password', placeholder: '••••••••' },
+  ]
 
   return (
-    <div className="page-container py-10 max-w-3xl animate-fade-in">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-ink-900">My Registrations</h1>
-        <p className="text-ink-600/60 font-sans text-sm mt-1">
-          All events you've registered for or are on the waitlist for.
-        </p>
-      </div>
+    <div className="min-h-screen bg-ink-900 flex items-center justify-center p-8">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="flex items-center gap-2 mb-8">
+          <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center">
+            <span className="font-serif font-bold text-ink-900 text-sm">E</span>
+          </div>
+          <span className="font-serif text-white text-xl">EventHub</span>
+        </Link>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="skeleton h-20 rounded-2xl" />
-          ))}
-        </div>
-      ) : registrations.length === 0 ? (
-        <div className="text-center py-24">
-          <div className="text-5xl mb-4">🎫</div>
-          <h3 className="font-serif text-xl text-ink-900 mb-2">No registrations yet</h3>
-          <p className="text-ink-600/60 font-sans text-sm mb-4">
-            Discover upcoming events and start registering!
-          </p>
-          <Link to="/" className="btn-gold">Browse Events →</Link>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {registrations.map(reg => (
-            <div key={reg.id} className="card p-5 flex items-center justify-between gap-4 hover:shadow-card-hover transition-shadow">
-              <div className="flex-1 min-w-0">
-                <Link
-                  to={`/events/${reg.eventId}`}
-                  className="font-serif text-lg text-ink-900 hover:text-ink-700 transition-colors line-clamp-1"
-                >
-                  {reg.eventTitle}
-                </Link>
-                <p className="text-ink-600/50 font-sans text-xs mt-1">
-                  Registered {format(new Date(reg.registeredAt), 'MMM d, yyyy')}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className={`badge border text-xs ${STATUS_STYLES[reg.status]}`}>
-                  {reg.status === 'REGISTERED' ? '✓ Registered' :
-                   reg.status === 'WAITLIST' ? '⏳ Waitlist' : '✕ Cancelled'}
-                </span>
-                <Link to={`/events/${reg.eventId}`} className="btn-ghost text-sm py-1.5 px-3">
-                  View →
-                </Link>
-              </div>
+        <h1 className="font-serif text-3xl text-white mb-2">Join EventHub</h1>
+        <p className="text-parchment-200/50 font-sans text-sm mb-8">
+          Create your student account — it's free
+        </p>
+
+        <form
+          onSubmit={handleSubmit(({ confirmPassword, ...data }) => registerMutation.mutate(data))}
+          className="space-y-4"
+        >
+          {fields.map(field => (
+            <div key={field.name}>
+              <label className="block text-sm font-sans text-parchment-200/70 mb-1.5">{field.label}</label>
+              <input
+                {...register(field.name)}
+                type={field.type}
+                placeholder={field.placeholder}
+                className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
+              />
+              {errors[field.name] && (
+                <p className="text-crimson text-xs mt-1 font-sans">{errors[field.name]?.message}</p>
+              )}
             </div>
           ))}
-        </div>
-      )}
 
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-8">
-          <button onClick={() => setPage(p => p - 1)} disabled={page === 0} className="btn-outline py-2 px-4 text-sm disabled:opacity-40">
-            ← Prev
+          <p className="text-parchment-200/30 text-xs font-sans">
+            By registering, you agree to our Terms of Service.
+          </p>
+
+          <button
+            type="submit"
+            disabled={registerMutation.isPending}
+            className="w-full btn-gold py-3.5 rounded-xl text-base mt-2"
+          >
+            {registerMutation.isPending ? 'Creating Account...' : 'Create Account'}
           </button>
-          <span className="font-mono text-sm self-center text-ink-600">{page + 1} / {data.totalPages}</span>
-          <button onClick={() => setPage(p => p + 1)} disabled={page >= data.totalPages - 1} className="btn-outline py-2 px-4 text-sm disabled:opacity-40">
-            Next →
-          </button>
-        </div>
-      )}
+        </form>
+
+        <p className="text-parchment-200/40 font-sans text-sm text-center mt-6">
+          Already have an account?{' '}
+          <Link to="/login" className="text-gold hover:text-gold-light transition-colors">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

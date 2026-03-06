@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -54,8 +55,9 @@ public class AuthService {
             throw new BusinessException("Email is already registered");
         }
 
-//        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
-            String otp="123456";
+        // Restore random 6-digit OTP generation
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        
         // Save to temporary table instead of User table
         tokenRepository.deleteByEmail(request.getEmail());
         tokenRepository.save(VerificationToken.builder()
@@ -68,9 +70,9 @@ public class AuthService {
                 .expiryDate(LocalDateTime.now().plusMinutes(15))
                 .build());
 
-//        emailService.sendOtpEmail(request.getEmail(), otp);
-//        return "OTP sent to your email. Verify to complete registration.";
-        return "OTP bypassed. Use 123456 to verify.";
+        // Restore real email sending
+        emailService.sendOtpEmail(request.getEmail(), otp);
+        return "OTP sent to your email. Verify to complete registration.";
     }
 
     @Transactional
@@ -322,9 +324,9 @@ public class AuthService {
         User user = userRepository.findByEmailAndDeletedFalse(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found with this email"));
 
-        // Generate 6-digit OTP
-//        String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
-        String otp="123456";
+        // Restore random 6-digit OTP generation
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        
         // Save OTP to the temporary token table
         tokenRepository.deleteByEmail(email);
         tokenRepository.save(VerificationToken.builder()
@@ -333,9 +335,9 @@ public class AuthService {
                 .expiryDate(LocalDateTime.now().plusMinutes(10))
                 .build());
 
-//        emailService.sendForgotPasswordOtp(email, otp);
-//        return "Password reset OTP sent to your email.";
-        return "OTP bypassed. Use 123456 to reset your password.";
+        // Restore real email sending
+        emailService.sendForgotPasswordOtp(email, otp);
+        return "Password reset OTP sent to your email.";
     }
 
     @Transactional
