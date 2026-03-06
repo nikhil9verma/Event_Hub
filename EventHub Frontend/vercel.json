@@ -5,7 +5,7 @@
       "destination": "http://eventhub-env.eba-tzeqmgfk.us-east-1.elasticbeanstalk.com/:path*"
     },
     {
-      "source": "/([^.]*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
