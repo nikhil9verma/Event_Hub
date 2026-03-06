@@ -1,9 +1,8 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-// Fixed: Removed the trailing /api from the localhost fallback
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ;
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
