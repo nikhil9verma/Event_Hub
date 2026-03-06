@@ -12,6 +12,10 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import MyEventsPage from './pages/MyEventPage'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ForgotPasswordPage from './pages/ForgotPassword'
+
+// 1. Added your two new imports here!
+import AdminDashboardPage from './pages/AdminDashboard'
+
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const userRole = useAuthStore((s) => s.user?.role)
@@ -31,6 +35,8 @@ export default function App() {
         <Route path="/login" element={loginElement} />
         <Route path="/register" element={registerElement} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        
+                
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="events/:id" element={<EventDetailPage />} />
@@ -60,6 +66,14 @@ export default function App() {
               <MyEventsPage />
             </ProtectedRoute>
           } />
+          
+          {/* 3. Added your Super Admin Dashboard Route */}
+          <Route path="admin" element={
+            <ProtectedRoute roles={['SUPER_ADMIN']}>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          } />
+          
         </Route>
       </Routes>
     </ErrorBoundary>
