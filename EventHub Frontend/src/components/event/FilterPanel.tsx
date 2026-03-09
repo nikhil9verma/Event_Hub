@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { EventFilters } from '../../types'
 
 const CATEGORIES = [
@@ -64,23 +63,6 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
         </label>
       </div>
 
-      {/* Trending */}
-      <div className="mb-5">
-        <label className="flex items-center gap-2.5 cursor-pointer group">
-          <div
-            onClick={() => onChange({ ...filters, trending: !filters.trending })}
-            className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
-              filters.trending ? 'bg-gold' : 'bg-ink-900/15'
-            }`}
-          >
-            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-              filters.trending ? 'translate-x-5' : 'translate-x-0.5'
-            }`} />
-          </div>
-          <span className="text-sm text-ink-700 font-sans">🔥 Trending only</span>
-        </label>
-      </div>
-
       {/* Date range */}
       <div className="mb-5">
         <p className="label mb-2">Date Range</p>
@@ -107,9 +89,16 @@ export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
       </div>
 
       {/* Clear */}
-      {(filters.category || filters.available || filters.trending || filters.dateFrom || filters.dateTo) && (
+      {(filters.category || filters.available || filters.dateFrom || filters.dateTo) && (
         <button
-          onClick={() => onChange({ page: 0, size: 10 })}
+          onClick={() => onChange({ 
+            page: 0, 
+            size: 9, 
+            category: undefined,
+            available: undefined,
+            dateFrom: undefined,
+            dateTo: undefined
+          })}
           className="w-full text-sm text-crimson font-sans hover:text-crimson/70 transition-colors py-2"
         >
           Clear all filters

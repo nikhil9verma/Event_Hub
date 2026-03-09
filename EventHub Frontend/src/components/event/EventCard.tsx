@@ -9,7 +9,7 @@ import type { Event } from '../../types'
 
 interface EventCardProps {
   event: Event
-  featured?: boolean
+  // featured?: boolean
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -62,7 +62,7 @@ function Countdown({ date }: { date: string }) {
   return <span className="text-ink-600/60 font-mono text-xs">{format(eventDate, 'MMM d')}</span>
 }
 
-export default function EventCard({ event, featured = false }: EventCardProps) {
+export default function EventCard({ event }: EventCardProps) {
   const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -115,7 +115,7 @@ export default function EventCard({ event, featured = false }: EventCardProps) {
   const canRegister = event.status !== 'SUSPENDED' && event.status !== 'COMPLETED' && !isPastDeadline
 
   return (
-    <div className={`card group overflow-hidden flex flex-col animate-fade-in ${featured ? 'ring-2 ring-gold/30' : ''}`}>
+    <div className={`card group overflow-hidden flex flex-col animate-fade-in `}>
       {/* Card thumbnail */}
       <Link to={`/events/${event.id}`} className="relative block overflow-hidden">
         <div
@@ -147,11 +147,11 @@ export default function EventCard({ event, featured = false }: EventCardProps) {
           {event.status === 'COMPLETED' && (
             <span className="badge bg-ink-700 text-parchment-200 border-0">Completed</span>
           )}
-          {featured && (
+          {/* {featured && (
             <span className="badge bg-ink-900/80 text-gold border border-gold/30 text-[10px] uppercase tracking-wide">
               ⭐ Featured
             </span>
-          )}
+          )} */}
         </div>
 
         
