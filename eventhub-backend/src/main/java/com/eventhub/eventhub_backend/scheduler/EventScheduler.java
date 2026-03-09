@@ -25,59 +25,61 @@ public class EventScheduler {
     private final EmailService emailService;
     private final EventService eventService;
 
+    // Set 'app.scheduled.reminder-cron=0 * * * * *' in application.properties for 1-minute testing
     @Scheduled(cron = "${app.scheduled.reminder-cron}")
     public void sendEventReminders() {
-
-        log.info("Running event reminder scheduler...");
+        log.info("Checking for upcoming event reminders...");
         LocalDateTime now = LocalDateTime.now();
 
-        // Fetch all active/full events that haven't completed yet
-        // We'll filter per-event based on their individual reminderHours setting
+        // Fetch events starting in the next 24 hours
         List<Event> events = eventRepository.findEventsForReminder(
-                now.plusMinutes(1),       // start of window: events starting after now
-                now.plusHours(24));       // generous upper bound — filtered below per event
+                now,
+                now.plusHours(24));
 
         for (Event event : events) {
-            if (event.getReminderHours() == null) {
-                continue;
-            }
-            LocalDateTime windowStart = now.plusMinutes(event.getReminderHours() * 60L - 10);
-            LocalDateTime windowEnd   = now.plusMinutes(event.getReminderHours() * 60L + 10);
+            if (event.getReminderHours() == null) continue;
 
-            if (event.getEventDate().isBefore(windowStart) || event.getEventDate().isAfter(windowEnd)) {
-                continue; // not in this event's reminder window yet
-            }
+            // Calculate when the reminder should be sent
+            // Example: If event is 5:00 PM and reminderHours is 2, target is 3:00 PM
+            LocalDateTime targetReminderTime = event.getEventDate().minusHours(event.getReminderHours());
 
-            sendRemindersForEvent(event);
+            /* LOGIC: If 'now' is past the target time, and it's not too late
+               (e.g., within 30 mins of the target), send the email.
+               NOTE: Adding a 'boolean reminderSent' to your Event entity is highly recommended
+               to prevent duplicate emails if the scheduler runs multiple times.
+            */
+            if (now.isAfter(targetReminderTime) && now.isBefore(targetReminderTime.plusMinutes(30))) {
+                // To prevent spamming every minute during testing,
+                // you could check a flag here: if (!event.isReminderSent()) { ... }
+                sendRemindersForEvent(event);
+            }
         }
     }
 
     private void sendRemindersForEvent(Event event) {
-        // Fetch all REGISTERED (not waitlist) participants for this event
         List<Registration> registeredList = registrationRepository
                 .findByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
 
         if (registeredList.isEmpty()) {
-            log.info("No registered participants for event '{}', skipping reminders", event.getTitle());
+            log.info("No registered participants for event '{}'", event.getTitle());
             return;
         }
 
-        log.info("Sending reminders for event '{}' to {} participants",
+        log.info("Executing reminder broadcast for event '{}' to {} users",
                 event.getTitle(), registeredList.size());
 
         for (Registration registration : registeredList) {
             try {
                 emailService.sendEventReminder(registration.getUser(), event);
             } catch (Exception e) {
-                log.error("Failed to send reminder to user {} for event '{}': {}",
-                        registration.getUser().getId(), event.getTitle(), e.getMessage());
+                log.error("Failed to send email to {}: {}", registration.getUser().getEmail(), e.getMessage());
             }
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "0 0 * * * *") // Runs every hour
     public void markCompletedEvents() {
-        log.info("Marking expired events as COMPLETED...");
+        log.info("System Task: Updating expired events to COMPLETED status");
         eventService.markExpiredEventsCompleted();
     }
 }

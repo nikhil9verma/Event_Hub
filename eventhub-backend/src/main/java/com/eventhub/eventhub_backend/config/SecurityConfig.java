@@ -70,10 +70,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allow your local React dev server and your production Vercel URL
+        // Added your official production domain to the whitelist
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://event-hub-beta-cyan.vercel.app"
+                "https://event-hub-beta-cyan.vercel.app",
+                "https://eventhub.nikhilverma.tech" // <-- THE FIX
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -81,7 +82,6 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Use "/**" to apply this to all paths under the context path
         source.registerCorsConfiguration("/**", config);
         return source;
     }
