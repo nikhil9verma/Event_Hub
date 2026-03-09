@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://event-hub-env.eba-uqgzgkri.ap-south-1.elasticbeanstalk.com/:path*"
+      "destination": "http://event-hub-env.eba-uqgzgkri.ap-south-1.elasticbeanstalk.com/api/:path*"
     },
     {
       "source": "/((?!api/).*)",
