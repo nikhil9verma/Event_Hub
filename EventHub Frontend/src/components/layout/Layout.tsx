@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import Drawer from '@mui/material/Drawer'
 import Avatar from '@mui/material/Avatar'
 import { useAuthStore } from '../../store/authStore'
-import { notificationsApi } from '../../api/Endpoints'
-import NotificationPanel from '../notifications/NotificationPanel'
+// import { notificationsApi } from '../../api/Endpoints'
+// import NotificationPanel from '../notifications/NotificationPanel'
 import { getImageUrl } from '../event/EventCard'
 
 function BellIcon({ count }: { count: number }) {
@@ -30,12 +30,12 @@ export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
 
-  const { data: unreadCount } = useQuery({
-    queryKey: ['notifications', 'unread'],
-    queryFn: () => notificationsApi.getUnreadCount().then((r: { data: { data: any } }) => r.data.data ?? null),
-    enabled: isAuthenticated,
-    refetchInterval: 30000,
-  })
+  // const { data: unreadCount } = useQuery({
+  //   queryKey: ['notifications', 'unread'],
+  //   queryFn: () => notificationsApi.getUnreadCount().then((r: { data: { data: any } }) => r.data.data ?? null),
+  //   enabled: isAuthenticated,
+  //   refetchInterval: 30000,
+  // })
 
   const handleLogout = () => {
     logout()
@@ -65,9 +65,9 @@ export default function Layout() {
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
                 <>
-                  <div onClick={() => setNotifOpen(true)} className="cursor-pointer">
+                  {/* <div onClick={() => setNotifOpen(true)} className="cursor-pointer">
                     <BellIcon count={unreadCount ?? 0} />
-                  </div>
+                  </div> */}
 
                   <button
                     onClick={() => setDrawerOpen(true)}
@@ -175,7 +175,7 @@ export default function Layout() {
           sx: { width: 380, background: '#faf9f6' }
         }}
       >
-        <NotificationPanel onClose={() => setNotifOpen(false)} />
+        {/* <NotificationPanel onClose={() => setNotifOpen(false)} /> */}
       </Drawer>
 
       {/* Page Content */}

@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom' // <-- Added useNavigate
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useState } from 'react'
@@ -33,6 +33,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate() // <-- Added for redirection after delete
   const { isAuthenticated, user } = useAuthStore()
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
@@ -88,6 +89,17 @@ export default function EventDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Failed'),
   })
 
+  // <-- NEW: Delete Mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => eventsApi.deleteEvent(Number(id)),
+    onSuccess: () => {
+      toast.success('Event deleted successfully')
+      queryClient.invalidateQueries({ queryKey: ['events'] }) // Refresh global events list
+      navigate('/') // Send host back to the homepage
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to delete event'),
+  })
+
   if (isLoading) return <div className="page-container py-12"><div className="skeleton h-80 rounded-2xl" /></div>
   if (!event) return null
 
@@ -127,7 +139,7 @@ export default function EventDetailPage() {
             <div className="card p-6">
               <h2 className="section-title mb-4">Attendee Discussion</h2>
               
-              {/* Comment Input: Show if Registered and event not Suspended */}
+              {/* Comment Input */}
               {isAuthenticated && isRegistered && !isSuspended ? (
                 <div className="mb-6 space-y-3">
                   <textarea
@@ -202,13 +214,32 @@ export default function EventDetailPage() {
                 <Link to="/login" className="w-full btn-gold py-3 rounded-xl text-center block mb-3">Sign in to Register</Link>
               )}
 
-              {/* Rating Section: Keep restricted to Completed Events */}
+              {/* Rating Section */}
               {isCompleted && isAuthenticated && isRegistered && (
-                <div className="border-t border-ink-900/8 pt-3">
+                <div className="border-t border-ink-900/8 pt-3 mt-3">
                   <p className="text-xs text-ink-600/50 mb-2">Rate your experience:</p>
                   <StarRating value={rating} onChange={(v) => { setRating(v); ratingMutation.mutate(v); }} />
                 </div>
               )}
+
+              {/* NEW: Host Controls Section */}
+              {isHost && (
+                <div className="border-t border-ink-900/8 pt-4 mt-4">
+                  <p className="text-xs text-ink-600/40 mb-3 uppercase font-bold tracking-wider text-center">Host Controls</p>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+                        deleteMutation.mutate()
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="w-full py-3 rounded-xl border border-crimson text-crimson hover:bg-crimson/5 transition-colors font-medium text-sm"
+                  >
+                    {deleteMutation.isPending ? 'Deleting...' : '🗑️ Delete Event'}
+                  </button>
+                </div>
+              )}
+              
             </div>
           </div>
         </div>

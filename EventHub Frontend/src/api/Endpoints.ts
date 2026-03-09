@@ -2,7 +2,8 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const BASE_URL = 'http://localhost:5000/api'  // For development; replace with env variable in production
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -96,6 +97,10 @@ export const eventsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  // Inside src/api/Endpoints.ts, under the eventsApi object:
+
+  deleteEvent: (id: number) => 
+    api.delete(`/events/${id}`),
 
   uploadCardImage: (id: number, file: File) => {
     const form = new FormData()
@@ -131,16 +136,16 @@ export const eventsApi = {
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
-export const notificationsApi = {
-  getNotifications: (page = 0, size = 20) =>
-    api.get('/notifications', { params: { page, size } }),
+// export const notificationsApi = {
+//   getNotifications: (page = 0, size = 20) =>
+//     api.get('/notifications', { params: { page, size } }),
 
-  getUnreadCount: () =>
-    api.get('/notifications/unread-count'),
+//   getUnreadCount: () =>
+//     api.get('/notifications/unread-count'),
 
-  markRead: (id: number) =>
-    api.patch(`/notifications/${id}/read`),
+//   markRead: (id: number) =>
+//     api.patch(`/notifications/${id}/read`),
 
-  markAllRead: () =>
-    api.post('/notifications/mark-all-read'),
-}
+//   markAllRead: () =>
+//     api.post('/notifications/mark-all-read'),
+// }

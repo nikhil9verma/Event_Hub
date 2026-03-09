@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import {eventsApi}  from '../api/Endpoints'
+import { eventsApi } from '../api/Endpoints'
 import { useState } from 'react'
-import type { EventStatus } from '../types'
+import type { EventStatus, Event } from '../types' // Added Event type
+import DeleteEventModal from '../components/event/DeleteEventModal' // Import the modal
 
 const STATUS_BADGE: Record<EventStatus, string> = {
   ACTIVE: 'badge-sage',
@@ -14,10 +15,13 @@ const STATUS_BADGE: Record<EventStatus, string> = {
 
 export default function MyEventsPage() {
   const [page, setPage] = useState(0)
+  
+  // State to track which event is currently selected for deletion
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['myEvents', page],
-    queryFn: () => eventsApi.getMyEvents(page).then((r: { data: { data: any } }) => r.data.data??null),
+    queryFn: () => eventsApi.getMyEvents(page).then((r: { data: { data: any } }) => r.data.data ?? null),
   })
 
   const events = data?.content ?? []
@@ -47,7 +51,7 @@ export default function MyEventsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {events.map(event => {
+          {events.map((event: Event) => {
             const fillPct = Math.min(100, (event.registrationCount / event.maxParticipants) * 100)
             return (
               <div key={event.id} className="card p-5">
@@ -77,6 +81,8 @@ export default function MyEventsPage() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Action Buttons Row */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Link to={`/events/${event.id}/analytics`} className="btn-outline py-1.5 px-3 text-xs">
                       📊 Analytics
@@ -84,7 +90,15 @@ export default function MyEventsPage() {
                     <Link to={`/events/${event.id}/edit`} className="btn-ghost py-1.5 px-3 text-xs">
                       ✏️ Edit
                     </Link>
+                    {/* Delete Button Triggers Modal */}
+                    <button 
+                      onClick={() => setEventToDelete(event)}
+                      className="btn-ghost py-1.5 px-3 text-xs text-crimson hover:bg-crimson/10 transition-colors"
+                    >
+                      🗑️ Delete
+                    </button>
                   </div>
+
                 </div>
               </div>
             )
@@ -99,6 +113,13 @@ export default function MyEventsPage() {
           <button onClick={() => setPage(p => p + 1)} disabled={page >= data.totalPages - 1} className="btn-outline py-2 px-4 text-sm disabled:opacity-40">Next →</button>
         </div>
       )}
+
+      {/* The Confirmation Modal */}
+      <DeleteEventModal 
+        event={eventToDelete} 
+        onClose={() => setEventToDelete(null)} 
+      />
+
     </div>
   )
 }
