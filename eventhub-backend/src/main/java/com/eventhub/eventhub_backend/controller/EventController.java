@@ -1,9 +1,9 @@
 package com.eventhub.eventhub_backend.controller;
 
-
 import com.eventhub.eventhub_backend.dto.request.EventFilterRequest;
 import com.eventhub.eventhub_backend.dto.request.EventRequest;
 import com.eventhub.eventhub_backend.dto.request.FeedbackRequests;
+import com.eventhub.eventhub_backend.dto.request.TeamRegistrationRequest; // NEW IMPORT
 import com.eventhub.eventhub_backend.dto.response.*;
 import com.eventhub.eventhub_backend.service.EventService;
 import com.eventhub.eventhub_backend.service.FeedbackService;
@@ -17,7 +17,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/events")
@@ -42,18 +44,19 @@ public class EventController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('HOST', 'SUPER_ADMIN', 'ROLE_HOST', 'ROLE_SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EventResponse>> createEvent(@Valid @RequestBody EventRequest request) {
         return ResponseEntity.status(201).body(ApiResponse.success("Event created",
                 eventService.createEvent(securityUtils.getCurrentUserId(), request)));
     }
-    // Add this inside EventController.java
+
     @GetMapping("/{id}/attendees")
     @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<AttendeeResponse>>> getAttendees(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(
                 eventService.getEventAttendees(id, securityUtils.getCurrentUserId())));
     }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EventResponse>> updateEvent(
@@ -71,10 +74,20 @@ public class EventController {
                 eventService.uploadPoster(id, securityUtils.getCurrentUserId(), url)));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteEvent(@PathVariable Long id, Principal principal) {
+        eventService.deleteEvent(id, principal.getName());
+        return ResponseEntity.ok().body(Map.of("message", "Event deleted successfully"));
+    }
+
+    // ─── UPDATED: NOW ACCEPTS TEAM DATA ───
     @PostMapping("/{id}/register")
-    public ResponseEntity<ApiResponse<EventService.RegistrationResponse>> register(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<EventService.RegistrationResponse>> register(
+            @PathVariable Long id,
+            @RequestBody(required = false) @Valid TeamRegistrationRequest request) {
+
         return ResponseEntity.ok(ApiResponse.success("Registration successful",
-                eventService.registerForEvent(id, securityUtils.getCurrentUserId())));
+                eventService.registerForEvent(id, securityUtils.getCurrentUserId(), request)));
     }
 
     @DeleteMapping("/{id}/register")
@@ -99,13 +112,13 @@ public class EventController {
                 eventService.getHostEvents(securityUtils.getCurrentUserId(), page, size)));
     }
 
-    // Comments
     @PostMapping("/{id}/comments")
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
             @PathVariable Long id, @Valid @RequestBody FeedbackRequests.CommentRequest request) {
         return ResponseEntity.status(201).body(ApiResponse.success("Comment added",
                 feedbackService.addComment(id, securityUtils.getCurrentUserId(), request)));
     }
+
     @PostMapping("/{id}/card-image")
     @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<EventResponse>> uploadCardImage(
@@ -123,7 +136,6 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getComments(id, page, size)));
     }
 
-    // Ratings
     @PostMapping("/{id}/rating")
     public ResponseEntity<ApiResponse<RatingResponse>> rateEvent(
             @PathVariable Long id, @Valid @RequestBody FeedbackRequests.RatingRequest request) {

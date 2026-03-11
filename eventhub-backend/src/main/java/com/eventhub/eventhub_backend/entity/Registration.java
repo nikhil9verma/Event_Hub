@@ -1,11 +1,12 @@
 package com.eventhub.eventhub_backend.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "registrations",
@@ -28,6 +29,12 @@ public class Registration {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private com.eventhub.eventhub_backend.enums.RegistrationStatus status;
+
+    // ─── NEW TEAM MEMBERS FIELD ───
+    @OneToMany(mappedBy = "registration", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<TeamMember> teamMembers = new ArrayList<>();
+    // ──────────────────────────────
 
     @CreationTimestamp
     private LocalDateTime registeredAt;

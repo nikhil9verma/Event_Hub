@@ -2,11 +2,14 @@ package com.eventhub.eventhub_backend.service;
 
 import com.eventhub.eventhub_backend.dto.request.EventFilterRequest;
 import com.eventhub.eventhub_backend.dto.request.EventRequest;
+import com.eventhub.eventhub_backend.dto.request.TeamRegistrationRequest;
 import com.eventhub.eventhub_backend.dto.response.AnalyticsResponse;
 import com.eventhub.eventhub_backend.dto.response.AttendeeResponse;
 import com.eventhub.eventhub_backend.dto.response.EventResponse;
 import com.eventhub.eventhub_backend.entity.Event;
+import com.eventhub.eventhub_backend.entity.EventStage;
 import com.eventhub.eventhub_backend.entity.Registration;
+import com.eventhub.eventhub_backend.entity.TeamMember;
 import com.eventhub.eventhub_backend.entity.User;
 import com.eventhub.eventhub_backend.enums.EventStatus;
 import com.eventhub.eventhub_backend.enums.RegistrationStatus;
@@ -18,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ public class EventService {
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Transactional
     public EventResponse createEvent(Long hostId, EventRequest request) {
@@ -56,7 +59,6 @@ public class EventService {
             throw new BusinessException("Registration deadline must be before event date");
         }
 
-        // FIX 4: Default eventEndTime to eventDate + 2 hours if not provided
         LocalDateTime endTime = request.getEventEndTime() != null
                 ? request.getEventEndTime()
                 : request.getEventDate().plusHours(2);
@@ -73,16 +75,32 @@ public class EventService {
                 .reminderHours(request.getReminderHours())
                 .host(host)
                 .status(EventStatus.ACTIVE)
+                .minTeamSize(request.getMinTeamSize() != null ? request.getMinTeamSize() : 1)
+                .maxTeamSize(request.getMaxTeamSize() != null ? request.getMaxTeamSize() : 1)
+                .contactEmail(request.getContactEmail())
+                .prizes(request.getPrizes())
                 .build();
+
+        if (request.getStages() != null && !request.getStages().isEmpty()) {
+            List<EventStage> stages = request.getStages().stream().map(stageReq -> {
+                return EventStage.builder()
+                        .title(stageReq.getTitle())
+                        .description(stageReq.getDescription())
+                        .stageDate(stageReq.getStageDate())
+                        .event(event)
+                        .build();
+            }).toList();
+            event.setStages(stages);
+        }
 
         Event saved = eventRepository.save(event);
         emailService.sendEventCreatedConfirmation(host, saved);
         return toResponse(saved, Optional.empty());
     }
-    // Add this method anywhere inside EventService.java
+
     public List<AttendeeResponse> getEventAttendees(Long eventId, Long hostId) {
         Event event = getEventOrThrow(eventId);
-        verifyHostOwnership(event, hostId); // Security check!
+        verifyHostOwnership(event, hostId);
 
         return registrationRepository.findByEventIdOrderByRegisteredAtDesc(eventId).stream()
                 .map(reg -> AttendeeResponse.builder()
@@ -93,9 +111,16 @@ public class EventService {
                         .batch(reg.getUser().getBatch())
                         .status(reg.getStatus())
                         .registeredAt(reg.getRegisteredAt())
+                        .teammates(reg.getTeamMembers().stream()
+                                .map(tm -> AttendeeResponse.TeamMemberResponse.builder()
+                                        .name(tm.getName())
+                                        .email(tm.getEmail())
+                                        .build())
+                                .toList())
                         .build())
                 .toList();
     }
+
     @Transactional
     public EventResponse updateEvent(Long eventId, Long hostId, EventRequest request) {
         Event event = getEventOrThrow(eventId);
@@ -119,8 +144,38 @@ public class EventService {
         event.setRegistrationDeadline(request.getRegistrationDeadline());
         event.setReminderHours(request.getReminderHours());
 
+        event.setMinTeamSize(request.getMinTeamSize() != null ? request.getMinTeamSize() : 1);
+        event.setMaxTeamSize(request.getMaxTeamSize() != null ? request.getMaxTeamSize() : 1);
+        event.setContactEmail(request.getContactEmail());
+        event.setPrizes(request.getPrizes());
+
+        if (request.getStages() != null) {
+            event.getStages().clear();
+            List<EventStage> newStages = request.getStages().stream().map(stageReq -> {
+                return EventStage.builder()
+                        .title(stageReq.getTitle())
+                        .description(stageReq.getDescription())
+                        .stageDate(stageReq.getStageDate())
+                        .event(event)
+                        .build();
+            }).toList();
+            event.getStages().addAll(newStages);
+        }
+
         updateEventStatus(event);
         return toResponse(eventRepository.save(event), Optional.empty());
+    }
+
+    @Transactional
+    public void deleteEvent(Long eventId, String userEmail) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+
+        if (!event.getHost().getEmail().equals(userEmail)) {
+            throw new RuntimeException("Forbidden: You can only delete your own events.");
+        }
+
+        eventRepository.delete(event);
     }
 
     @Transactional
@@ -136,10 +191,7 @@ public class EventService {
     }
 
     public Page<EventResponse> getEvents(EventFilterRequest filter, @Nullable Long currentUserId) {
-        // Pass currentUserId into the specification builder
         Specification<Event> spec = buildSpecification(filter, currentUserId);
-
-        // Remove the hardcoded Sort here. The Specification will handle the sorting now.
         PageRequest pageable = PageRequest.of(filter.getPage(), filter.getSize());
 
         return eventRepository.findAll(spec, pageable)
@@ -157,7 +209,7 @@ public class EventService {
     }
 
     @Transactional
-    public RegistrationResponse registerForEvent(Long eventId, Long userId) {
+    public RegistrationResponse registerForEvent(Long eventId, Long userId, TeamRegistrationRequest request) {
         Event event = getEventOrThrow(eventId);
         User user = userRepository.findByIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -170,64 +222,84 @@ public class EventService {
             throw new BusinessException("Registration deadline has passed");
         }
 
+        int totalTeamSize = 1;
+        List<TeamMember> teamMembers = new ArrayList<>();
+        List<String> emailsToCheck = new ArrayList<>();
+        emailsToCheck.add(user.getEmail());
+
+        if (request != null && request.getTeamMembers() != null && !request.getTeamMembers().isEmpty()) {
+            totalTeamSize += request.getTeamMembers().size();
+
+            for (TeamRegistrationRequest.TeammateDto dto : request.getTeamMembers()) {
+                if (emailsToCheck.contains(dto.getEmail())) {
+                    throw new BusinessException("Duplicate emails found within your team registration.");
+                }
+                emailsToCheck.add(dto.getEmail());
+                teamMembers.add(TeamMember.builder()
+                        .name(dto.getName())
+                        .email(dto.getEmail())
+                        .build());
+            }
+        }
+
+        if (totalTeamSize < event.getMinTeamSize() || totalTeamSize > event.getMaxTeamSize()) {
+            throw new BusinessException("Team size must be between " + event.getMinTeamSize() + " and " + event.getMaxTeamSize() + " (including the leader).");
+        }
+
         Optional<Registration> existing = registrationRepository.findByUserIdAndEventId(userId, eventId);
         if (existing.isPresent()) {
             RegistrationStatus existingStatus = existing.get().getStatus();
             if (existingStatus == RegistrationStatus.REGISTERED || existingStatus == RegistrationStatus.WAITLIST) {
                 throw new BusinessException("You are already registered or on waitlist for this event");
             }
-            // Re-registration after cancellation: delete old record and re-insert
-            // so @CreationTimestamp fires correctly on the new INSERT
             registrationRepository.delete(existing.get());
             registrationRepository.flush();
+        }
 
-            RegistrationStatus newStatus = determineStatus(event);
-            Registration fresh = Registration.builder()
-                    .user(user).event(event).status(newStatus).build();
+        boolean leaderConflict = registrationRepository.existsByEventIdAndUserEmailIn(eventId, emailsToCheck);
+        boolean teammateConflict = teamMemberRepository.existsByRegistrationEventIdAndEmailIn(eventId, emailsToCheck);
 
-            Registration saved = registrationRepository.save(fresh);
-            handlePostRegistration(user, event, newStatus);
-            updateEventStatus(event);
-            eventRepository.save(event);
-            return toRegResponse(saved);
+        if (leaderConflict || teammateConflict) {
+            throw new BusinessException("Registration failed: One or more emails provided are already registered for this event.");
         }
 
         RegistrationStatus status = determineStatus(event);
         Registration registration = Registration.builder()
-                .user(user).event(event).status(status).build();
+                .user(user)
+                .event(event)
+                .status(status)
+                .build();
+
+        for (TeamMember tm : teamMembers) {
+            tm.setRegistration(registration);
+        }
+        registration.setTeamMembers(teamMembers);
 
         Registration saved = registrationRepository.save(registration);
-        handlePostRegistration(user, event, status);
+
+        // Ensure teamMembers are passed to handle emails properly
+        handlePostRegistration(user, event, status, teamMembers);
         updateEventStatus(event);
         eventRepository.save(event);
+
         return toRegResponse(saved);
     }
 
-    // Inside your RegistrationService or EventService
     @Transactional
     public void cancelRegistration(Long eventId, Long userId) {
-        // 1. Fetch the Event using your existing helper
         Event event = getEventOrThrow(eventId);
 
-        // 2. The Crucial Security Check: Cannot cancel after the event has started
         if (LocalDateTime.now().isAfter(event.getEventDate())) {
             throw new BusinessException("Cancellations are not allowed after the event has started.");
         }
 
-        // 3. Find the registration using the method you already have in your repository
         Registration registration = registrationRepository.findByUserIdAndEventId(userId, eventId)
                 .orElseThrow(() -> new BusinessException("Active registration not found for this event."));
 
-        // 4. Delete the registration
         registrationRepository.delete(registration);
-
-        // Flush immediately so the database knows there is a free spot before checking the waitlist
         registrationRepository.flush();
 
-        // 5. A spot just opened up! Automatically promote the next person on the waitlist
         promoteFromWaitlist(event);
-
-        // 6. Update the event status (e.g., changes from FULL back to ACTIVE if no one was on the waitlist)
         updateEventStatus(event);
         eventRepository.save(event);
     }
@@ -246,8 +318,7 @@ public class EventService {
             notificationService.createNotification(
                     toPromote.getUser().getId(),
                     "You got a spot! 🎊",
-                    "You've been promoted from the waitlist for: " + event.getTitle()
-            );
+                    "You've been promoted from the waitlist for: " + event.getTitle());
             log.info("Promoted user {} from waitlist for event {}", toPromote.getUser().getId(), event.getId());
         }
     }
@@ -266,7 +337,8 @@ public class EventService {
         Event event = getEventOrThrow(eventId);
         verifyHostOwnership(event, hostId);
 
-        long totalRegistrations = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.REGISTERED);
+        long totalRegistrations = registrationRepository.countByEventIdAndStatus(eventId,
+                RegistrationStatus.REGISTERED);
         long waitlistCount = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.WAITLIST);
         double fillPercentage = event.getMaxParticipants() > 0
                 ? (totalRegistrations * 100.0) / event.getMaxParticipants()
@@ -297,10 +369,6 @@ public class EventService {
                 .build();
     }
 
-    // FIX 4: Use eventEndTime instead of eventDate for COMPLETED transition.
-    // Previously events were marked COMPLETED as soon as they started (eventDate < now),
-    // which prevented users from commenting immediately after attending.
-    // Now we wait until the event has actually ended (eventEndTime < now).
     @Transactional
     public void markExpiredEventsCompleted() {
         List<Event> expired = eventRepository.findExpiredActiveEvents(LocalDateTime.now());
@@ -315,33 +383,42 @@ public class EventService {
 
     @Transactional
     public void detachHostFromEvents(Long hostId) {
-        // Nullify host FK on all this user's events so the user row can be
-        // hard deleted without violating the FK constraint. Events stay in DB
-        // (as SUSPENDED) so other users' registration history is preserved.
         eventRepository.detachHostFromAllEvents(hostId);
     }
-
-    // ─── Private helpers ────────────────────────────────────────────────────────
 
     private RegistrationStatus determineStatus(Event event) {
         long registered = registrationRepository.countByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
         return registered < event.getMaxParticipants() ? RegistrationStatus.REGISTERED : RegistrationStatus.WAITLIST;
     }
 
-    private void handlePostRegistration(User user, Event event, RegistrationStatus status) {
-        if (status == RegistrationStatus.REGISTERED) {
-            emailService.sendRegistrationConfirmation(user, event);
+    // ─── UPDATED EMAIL DISPATCH LOGIC ───
+    private void handlePostRegistration(User user, Event event, RegistrationStatus status, List<TeamMember> teamMembers) {
+        boolean isWaitlist = (status == RegistrationStatus.WAITLIST);
+
+        // 1. Send Emails asynchronously
+        if (teamMembers != null && !teamMembers.isEmpty()) {
+            emailService.sendTeamRegistrationConfirmation(user, teamMembers, event, isWaitlist);
+        } else {
+            if (isWaitlist) {
+                emailService.sendWaitlistConfirmation(user, event);
+            } else {
+                emailService.sendRegistrationConfirmation(user, event);
+            }
+        }
+
+        // 2. Send In-App Notifications (to the leader)
+        if (!isWaitlist) {
             notificationService.createNotification(user.getId(), "Registration Confirmed ✅",
                     "You're registered for: " + event.getTitle());
         } else {
-            emailService.sendWaitlistConfirmation(user, event);
             notificationService.createNotification(user.getId(), "Added to Waitlist ⏳",
                     "You're on the waitlist for: " + event.getTitle());
         }
     }
 
     private void updateEventStatus(Event event) {
-        if (event.getStatus() == EventStatus.SUSPENDED || event.getStatus() == EventStatus.COMPLETED) return;
+        if (event.getStatus() == EventStatus.SUSPENDED || event.getStatus() == EventStatus.COMPLETED)
+            return;
         long registered = registrationRepository.countByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
         if (registered >= event.getMaxParticipants()) {
             event.setStatus(EventStatus.FULL);
@@ -355,7 +432,6 @@ public class EventService {
             List<Predicate> predicates = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now();
 
-            // Keep SUSPENDED events hidden
             predicates.add(cb.notEqual(root.get("status"), EventStatus.SUSPENDED));
 
             if (filter.getSearch() != null && !filter.getSearch().isBlank()) {
@@ -379,20 +455,15 @@ public class EventService {
                 predicates.add(cb.lessThanOrEqualTo(root.<LocalDateTime>get("eventDate"), filter.getDateTo()));
             }
 
-            // --- ADVANCED DYNAMIC SORTING LOGIC ---
-
-            // 1. Group Events into Phases (0 = Open, 1 = Reg Closed, 2 = Completed)
             Expression<Integer> eventPhase = cb.<Integer>selectCase()
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), 2)
                     .when(cb.lessThan(root.<LocalDateTime>get("registrationDeadline"), now), 1)
                     .otherwise(0);
 
-            // 2. Create Date column for Active events (We will sort this Ascending)
             Expression<LocalDateTime> activeDateSort = cb.<LocalDateTime>selectCase()
                     .when(cb.notEqual(root.get("status"), EventStatus.COMPLETED), root.<LocalDateTime>get("eventDate"))
                     .otherwise(cb.nullLiteral(LocalDateTime.class));
 
-            // 3. Create Date column for Completed events (We will sort this Descending)
             Expression<LocalDateTime> completedDateSort = cb.<LocalDateTime>selectCase()
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), root.<LocalDateTime>get("eventDate"))
                     .otherwise(cb.nullLiteral(LocalDateTime.class));
@@ -401,34 +472,26 @@ public class EventService {
                 Join<Event, Registration> regJoin = root.join("registrations", JoinType.LEFT);
                 regJoin.on(
                         cb.equal(regJoin.get("user").get("id"), currentUserId),
-                        cb.equal(regJoin.get("status"), RegistrationStatus.REGISTERED)
-                );
+                        cb.equal(regJoin.get("status"), RegistrationStatus.REGISTERED));
 
-                // 4. Is the user registered?
-                // Notice the extra rule: It only equals 1 if the event is NOT completed.
-                // This ensures that when an event completes or a user cancels, it drops back to normal sorting.
                 Expression<Integer> isRegistered = cb.<Integer>selectCase()
                         .when(cb.and(
                                 cb.isNotNull(regJoin.get("id")),
-                                cb.notEqual(root.get("status"), EventStatus.COMPLETED)
-                        ), 1)
+                                cb.notEqual(root.get("status"), EventStatus.COMPLETED)), 1)
                         .otherwise(0);
 
                 query.orderBy(
-                        cb.asc(eventPhase),           // Priority 1: Open -> Closed -> Completed
-                        cb.desc(isRegistered),        // Priority 2: Push registered to the top of their current bucket
-                        cb.asc(activeDateSort),       // Priority 3: Active events sort closest-date-first
-                        cb.desc(completedDateSort)    // Priority 4: Completed events sort latest-date-first
-                );
-            } else {
-                // Sorting for visitors who are not logged in
-                query.orderBy(
                         cb.asc(eventPhase),
+                        cb.desc(isRegistered),
                         cb.asc(activeDateSort),
                         cb.desc(completedDateSort)
                 );
+            } else {
+                query.orderBy(
+                        cb.asc(eventPhase),
+                        cb.asc(activeDateSort),
+                        cb.desc(completedDateSort));
             }
-            // --------------------------------------
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -456,6 +519,18 @@ public class EventService {
                 .map(r -> r.getStatus().name())
                 .orElse(null);
 
+        List<EventResponse.EventStageResponse> stageResponses = null;
+        if (event.getStages() != null) {
+            stageResponses = event.getStages().stream()
+                    .map(stage -> EventResponse.EventStageResponse.builder()
+                            .id(stage.getId())
+                            .title(stage.getTitle())
+                            .description(stage.getDescription())
+                            .stageDate(stage.getStageDate())
+                            .build())
+                    .toList();
+        }
+
         return EventResponse.builder()
                 .id(event.getId())
                 .title(event.getTitle())
@@ -482,6 +557,11 @@ public class EventService {
                 .createdAt(event.getCreatedAt())
                 .updatedAt(event.getUpdatedAt())
                 .currentUserRegistrationStatus(userRegStatus)
+                .minTeamSize(event.getMinTeamSize())
+                .maxTeamSize(event.getMaxTeamSize())
+                .contactEmail(event.getContactEmail())
+                .prizes(event.getPrizes())
+                .stages(stageResponses)
                 .build();
     }
 
@@ -489,9 +569,9 @@ public class EventService {
         return new RegistrationResponse(
                 reg.getId(), reg.getUser().getId(), reg.getUser().getName(),
                 reg.getEvent().getId(), reg.getEvent().getTitle(),
-                reg.getStatus(), reg.getRegisteredAt()
-        );
+                reg.getStatus(), reg.getRegisteredAt());
     }
+
     @Transactional
     public EventResponse uploadCardImage(Long eventId, Long hostId, String fileUrl) {
         Event event = getEventOrThrow(eventId);
@@ -507,5 +587,6 @@ public class EventService {
     public record RegistrationResponse(
             Long id, Long userId, String userName,
             Long eventId, String eventTitle,
-            RegistrationStatus status, LocalDateTime registeredAt) {}
+            RegistrationStatus status, LocalDateTime registeredAt) {
+    }
 }

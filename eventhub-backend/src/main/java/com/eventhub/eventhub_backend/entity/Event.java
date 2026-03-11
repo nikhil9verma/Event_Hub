@@ -1,6 +1,5 @@
 package com.eventhub.eventhub_backend.entity;
 
-
 import com.eventhub.eventhub_backend.enums.EventStatus;
 import com.eventhub.eventhub_backend.enums.RegistrationStatus;
 import jakarta.persistence.*;
@@ -59,12 +58,31 @@ public class Event {
     @Builder.Default
     private EventStatus status = EventStatus.ACTIVE;
 
-
     @Min(value = 1, message = "Reminder hours must be at least 1")
     private Integer reminderHours;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = true)
     private User host;
+
+    // ─── NEW FLEXIBLE FIELDS ───
+    @Column(name = "min_team_size")
+    @Builder.Default
+    private Integer minTeamSize = 1;
+
+    @Column(name = "max_team_size")
+    @Builder.Default
+    private Integer maxTeamSize = 1;
+
+    private String contactEmail;
+
+    @Column(columnDefinition = "TEXT")
+    private String prizes;
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<EventStage> stages = new ArrayList<>();
+    // ───────────────────────────
 
     @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
     @Builder.Default

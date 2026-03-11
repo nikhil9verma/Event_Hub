@@ -7,7 +7,10 @@ import lombok.Data;
 @Data @Builder
 public class AuthResponse {
     private String token;
+
+    @Builder.Default // <-- FIX FOR MAVEN WARNING
     private String type = "Bearer";
+
     private Long userId;
     private String course;
     private String batch;
