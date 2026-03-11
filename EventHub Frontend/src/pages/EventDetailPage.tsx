@@ -2,11 +2,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { useState } from 'react'
-import type { Key } from 'react'
 import toast from 'react-hot-toast'
 import { eventsApi } from '../api/Endpoints'
 import { useAuthStore } from '../store/authStore'
 import { getImageUrl } from '../components/event/EventCard'
+import type { Event } from '../types'
+import TeamRegistrationModal from '../components/event/TeamRegistrationModal'
 
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   const [hover, setHover] = useState(0)
@@ -39,7 +40,9 @@ export default function EventDetailPage() {
   const [comment, setComment] = useState('')
   const [rating, setRating] = useState(0)
 
-  const { data: event, isLoading } = useQuery({
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false)
+
+  const { data: event, isLoading } = useQuery<Event>({
     queryKey: ['event', Number(id)],
     queryFn: () => eventsApi.getEvent(Number(id)).then((r: any) => r.data.data ?? null),
     refetchInterval: 10000,
@@ -52,13 +55,17 @@ export default function EventDetailPage() {
   })
 
   const registerMutation = useMutation({
-    mutationFn: () => eventsApi.register(Number(id)),
+    mutationFn: (teamData?: any) => eventsApi.register(Number(id), teamData),
     onSuccess: (res: any) => {
       const status = res.data.data.status
       toast.success(status === 'REGISTERED' ? '🎉 Registered!' : '⏳ Added to waitlist')
+      setIsTeamModalOpen(false)
       queryClient.invalidateQueries({ queryKey: ['event', Number(id)] })
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || 'Registration failed'
+      toast.error(msg, { duration: 5000 })
+    },
   })
 
   const cancelMutation = useMutation({
@@ -110,6 +117,24 @@ export default function EventDetailPage() {
   const isSuspended = event.status === 'SUSPENDED'
   const canRegister = !isSuspended && !isCompleted && !isPastDeadline
   const isHost = user?.id === event.hostId || user?.role === 'SUPER_ADMIN'
+  const isTeamEvent = event.maxTeamSize > 1
+
+  const handleRegisterClick = () => {
+    if (isTeamEvent) {
+      setIsTeamModalOpen(true)
+    } else {
+      registerMutation.mutate(undefined) // ✅ FIX: Pass undefined
+    }
+  }
+
+  const sortedStages = event.stages ? [...event.stages].sort((a, b) => new Date(a.stageDate).getTime() - new Date(b.stageDate).getTime()) : []
+
+  // ─── GOOGLE CALENDAR LINK GENERATOR ───
+  const generateGCalLink = () => {
+    const startStr = new Date(event.eventDate).toISOString().replace(/-|:|\.\d+/g, '')
+    const endStr = event.eventEndTime ? new Date(event.eventEndTime).toISOString().replace(/-|:|\.\d+/g, '') : startStr
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(event.description)}&location=${encodeURIComponent(event.venue)}`
+  }
 
   return (
     <div className="animate-fade-in">
@@ -127,10 +152,62 @@ export default function EventDetailPage() {
           <div className="lg:col-span-2 space-y-8">
             <div className="card p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex gap-3"><span>📅</span><div><p className="text-xs text-ink-600/50 uppercase">Date</p><p className="text-sm font-medium">{format(new Date(event.eventDate), 'EEEE, MMM d, yyyy')}</p></div></div>
-                <div className="flex gap-3"><span>📍</span><div><p className="text-xs text-ink-600/50 uppercase">Venue</p><p className="text-sm font-medium">{event.venue}</p></div></div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-xl">📅</span>
+                  <div>
+                    <p className="text-xs text-ink-600/50 uppercase font-bold tracking-wider">Event Date</p>
+                    <p className="text-sm font-medium">{format(new Date(event.eventDate), 'EEEE, MMM d, yyyy')}</p>
+                    <p className="text-xs text-ink-600 mt-1">{format(new Date(event.eventDate), 'h:mm a')} {event.eventEndTime && `- ${format(new Date(event.eventEndTime), 'h:mm a')}`}</p>
+                    
+                    <a 
+                      href={generateGCalLink()} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-block mt-3 text-[10px] font-bold uppercase tracking-wider bg-ink-900/5 hover:bg-ink-900/10 text-ink-900 py-1.5 px-3 rounded-md transition-colors"
+                    >
+                      + Google Calendar
+                    </a>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-xl">📍</span>
+                  <div>
+                    <p className="text-xs text-ink-600/50 uppercase font-bold tracking-wider">Venue</p>
+                    <p className="text-sm font-medium">{event.venue}</p>
+                  </div>
+                </div>
               </div>
             </div>
+
+            <div className="card p-6">
+              <h2 className="section-title mb-4 border-b border-ink-900/5 pb-2">About this Event</h2>
+              <div className="text-ink-700 font-sans text-sm leading-relaxed whitespace-pre-wrap">
+                {event.description}
+              </div>
+            </div>
+
+            {event.prizes && (
+              <div className="card p-6 bg-gold/5 border border-gold/20">
+                <h2 className="section-title mb-4 flex items-center gap-2"><span>🏆</span> Rewards & Prizes</h2>
+                <div className="text-ink-800 font-sans text-sm leading-relaxed whitespace-pre-wrap">{event.prizes}</div>
+              </div>
+            )}
+
+            {sortedStages.length > 0 && (
+              <div className="card p-6">
+                <h2 className="section-title mb-6 border-b border-ink-900/5 pb-2">Event Timeline</h2>
+                <div className="relative border-l-2 border-gold/30 ml-3 space-y-8 pb-4">
+                  {sortedStages.map((stage, idx) => (
+                    <div key={stage.id || idx} className="relative pl-6">
+                      <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-gold border-4 border-white shadow-sm" />
+                      <p className="text-xs font-bold uppercase tracking-wider text-ink-600/60 mb-1">{format(new Date(stage.stageDate), 'MMM d, h:mm a')}</p>
+                      <h3 className="font-serif text-lg text-ink-900">{stage.title}</h3>
+                      {stage.description && <p className="text-sm text-ink-700 font-sans mt-1">{stage.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="card p-6">
               <h2 className="section-title mb-4">Attendee Discussion</h2>
@@ -158,8 +235,7 @@ export default function EventDetailPage() {
                   </p>
                 )
               )}
-
-              <div className="space-y-4">
+               <div className="space-y-4">
                 {commentsData?.content?.map((c: any) => (
                   <div key={c.id} className="flex gap-3 pb-4 border-b border-ink-900/5 last:border-0">
                     <div className="w-8 h-8 bg-ink-900 rounded-full flex items-center justify-center flex-shrink-0">
@@ -181,11 +257,22 @@ export default function EventDetailPage() {
 
           <div className="space-y-5">
             <div className="card p-5 sticky top-24">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-ink-900/5">
+                <span className="text-sm text-ink-600">Event Type</span>
+                <span className="font-medium text-sm px-2 py-1 bg-ink-50 rounded-md">
+                  {isTeamEvent 
+                    ? (event.minTeamSize === event.maxTeamSize ? `Team of ${event.maxTeamSize}` : `Team of ${event.minTeamSize} - ${event.maxTeamSize}`) 
+                    : 'Solo Event 👤'}
+                </span>
+              </div>
+
               <div className="mb-4">
                 <div className="progress-bar mb-2">
                   <div className={`progress-fill ${fillPct >= 100 ? 'bg-crimson' : 'bg-sage'}`} style={{ width: `${fillPct}%` }} />
                 </div>
-                <p className="text-xs text-ink-600/60 text-center">{event.registrationCount}/{event.maxParticipants} Registered</p>
+                <p className="text-xs text-ink-600/60 text-center">
+                  {event.registrationCount}/{event.maxParticipants} {isTeamEvent ? 'Teams' : 'Registered'}
+                </p>
               </div>
 
               {isAuthenticated ? (
@@ -198,8 +285,12 @@ export default function EventDetailPage() {
                     ⏳ Waitlisted — Leave
                   </button>
                 ) : canRegister ? (
-                  <button onClick={() => registerMutation.mutate()} className="w-full btn-gold py-3 rounded-xl mb-3">
-                    {event.status === 'FULL' ? 'Join Waitlist' : 'Register Now →'}
+                  <button 
+                    onClick={handleRegisterClick} 
+                    disabled={registerMutation.isPending}
+                    className="w-full btn-gold py-3 rounded-xl mb-3"
+                  >
+                    {registerMutation.isPending ? 'Processing...' : (event.status === 'FULL' ? 'Join Waitlist' : (isTeamEvent ? 'Register Team →' : 'Register Now →'))}
                   </button>
                 ) : <div className="p-3 text-center text-ink-600/50 text-sm">{isCompleted ? 'Event Completed' : 'Closed'}</div>
               ) : (
@@ -213,36 +304,31 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {/* HOST CONTROLS: Reorganized with Edit above Delete */}
-              {isHost && (
-                <div className="border-t border-ink-900/8 pt-4 mt-4 space-y-3">
-                  <p className="text-xs text-ink-600/40 mb-1 uppercase font-bold tracking-wider text-center">Host Controls</p>
-                  
-                  <Link 
-                    to={`/events/${event.id}/edit`}
-                    className="w-full py-3 rounded-xl border border-ink-900/10 bg-ink-50/50 text-ink-900 hover:bg-ink-100 transition-colors font-medium text-sm flex items-center justify-center gap-2"
-                  >
-                    ✏️ Edit Event Details
-                  </Link>
-
-                  <button
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-                        deleteMutation.mutate()
-                      }
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="w-full py-3 rounded-xl border border-crimson/10 text-crimson hover:bg-crimson/5 transition-colors font-medium text-sm flex items-center justify-center gap-2"
-                  >
-                    {deleteMutation.isPending ? 'Deleting...' : '🗑️ Delete Event'}
-                  </button>
+              {event.contactEmail && (
+                <div className="mt-4 pt-4 border-t border-ink-900/5 text-center">
+                  <p className="text-xs text-ink-600/50 mb-1">Questions?</p>
+                  <a href={`mailto:${event.contactEmail}`} className="text-sm text-gold hover:text-gold/80 font-medium">✉️ Contact Organizer</a>
                 </div>
               )}
-              
+
+              {isHost && (
+                <div className="border-t border-ink-900/8 pt-4 mt-4 space-y-3">
+                  <Link to={`/events/${event.id}/edit`} className="w-full py-3 rounded-xl border border-ink-900/10 bg-ink-50/50 text-ink-900 hover:bg-ink-100 transition-colors font-medium text-sm flex items-center justify-center gap-2">✏️ Edit Event Details</Link>
+                  <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate()} disabled={deleteMutation.isPending} className="w-full py-3 rounded-xl border border-crimson/10 text-crimson hover:bg-crimson/5 font-medium text-sm flex items-center justify-center gap-2">🗑️ Delete Event</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <TeamRegistrationModal 
+        event={event}
+        isOpen={isTeamModalOpen}
+        onClose={() => setIsTeamModalOpen(false)}
+        onSubmitTeam={(data) => registerMutation.mutate(data)}
+        isPending={registerMutation.isPending}
+      />
     </div>
   )
 }

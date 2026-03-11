@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { eventsApi } from '../api/Endpoints'
 import { useState } from 'react'
-import type { EventStatus, Event } from '../types' // Added Event type
-import DeleteEventModal from '../components/event/DeleteEventModal' // Import the modal
+import type { EventStatus, Event } from '../types'
+import DeleteEventModal from '../components/event/DeleteEventModal'
 
 const STATUS_BADGE: Record<EventStatus, string> = {
   ACTIVE: 'badge-sage',
@@ -15,8 +15,6 @@ const STATUS_BADGE: Record<EventStatus, string> = {
 
 export default function MyEventsPage() {
   const [page, setPage] = useState(0)
-  
-  // State to track which event is currently selected for deletion
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -55,7 +53,7 @@ export default function MyEventsPage() {
             const fillPct = Math.min(100, (event.registrationCount / event.maxParticipants) * 100)
             return (
               <div key={event.id} className="card p-5">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link to={`/events/${event.id}`} className="font-serif text-lg text-ink-900 hover:text-ink-700 truncate">
@@ -70,7 +68,6 @@ export default function MyEventsPage() {
                       <span>📅 {format(new Date(event.eventDate), 'MMM d, yyyy')}</span>
                       <span>📍 {event.venue}</span>
                       <span>👥 {event.registrationCount}/{event.maxParticipants}</span>
-                      {event.waitlistCount > 0 && <span>⏳ +{event.waitlistCount} waitlist</span>}
                     </div>
                     <div className="mt-3 max-w-xs">
                       <div className="progress-bar">
@@ -82,21 +79,26 @@ export default function MyEventsPage() {
                     </div>
                   </div>
                   
-                  {/* Action Buttons Row */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Link to={`/events/${event.id}/analytics`} className="btn-outline py-1.5 px-3 text-xs">
+                  {/* Reorganized Action Buttons: Analytics beside, Edit above Delete */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <Link to={`/events/${event.id}/analytics`} className="btn-outline py-2 px-3 text-xs h-fit">
                       📊 Analytics
                     </Link>
-                    <Link to={`/events/${event.id}/edit`} className="btn-ghost py-1.5 px-3 text-xs">
-                      ✏️ Edit
-                    </Link>
-                    {/* Delete Button Triggers Modal */}
-                    <button 
-                      onClick={() => setEventToDelete(event)}
-                      className="btn-ghost py-1.5 px-3 text-xs text-crimson hover:bg-crimson/10 transition-colors"
-                    >
-                      🗑️ Delete
-                    </button>
+                    
+                    <div className="flex flex-col gap-2">
+                      <Link 
+                        to={`/events/${event.id}/edit`} 
+                        className="btn-ghost py-1.5 px-3 text-xs text-center border border-ink-900/10 hover:bg-ink-50"
+                      >
+                        ✏️ Edit Event
+                      </Link>
+                      <button 
+                        onClick={() => setEventToDelete(event)}
+                        className="btn-ghost py-1.5 px-3 text-xs text-crimson hover:bg-crimson/10 transition-colors border border-crimson/10"
+                      >
+                        🗑️ Delete Event
+                      </button>
+                    </div>
                   </div>
 
                 </div>
@@ -114,12 +116,10 @@ export default function MyEventsPage() {
         </div>
       )}
 
-      {/* The Confirmation Modal */}
       <DeleteEventModal 
         event={eventToDelete} 
         onClose={() => setEventToDelete(null)} 
       />
-
     </div>
   )
 }

@@ -13,7 +13,14 @@ export interface User {
   profileImageUrl?: string
   createdAt: string
 }
-// Add this to your types.ts file
+
+export interface EventStage {
+  id?: number;
+  title: string;
+  description?: string;
+  stageDate: string;
+}
+
 export interface Attendee {
   userId: number;
   name: string;
@@ -22,7 +29,10 @@ export interface Attendee {
   batch?: string;
   status: RegistrationStatus;
   registeredAt: string;
+  // ─── NEW: For Host Analytics Dashboard ───
+  teammates?: { name: string; email: string }[];
 }
+
 export interface AuthResponse {
   token: string
   type: string
@@ -61,6 +71,13 @@ export interface Event {
   createdAt: string
   updatedAt: string
   currentUserRegistrationStatus?: RegistrationStatus
+  
+  // ─── NEW: Flexible Event & Team Fields ───
+  minTeamSize: number;
+  maxTeamSize: number;
+  contactEmail?: string;
+  prizes?: string;
+  stages?: EventStage[];
 }
 
 export interface HostRequest {

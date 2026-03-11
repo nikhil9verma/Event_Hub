@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts'
 import { useState } from 'react'
-import type { Attendee } from '../types/index' // Adjust path if needed
+import type { Attendee } from '../types/index'
 
 function StatCard({ label, value, sub, color = 'text-ink-900' }: {
   label: string; value: string | number; sub?: string; color?: string
@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
 
   const { data: analytics, isLoading } = useQuery({
     queryKey: ['analytics', Number(id)],
-    queryFn: () => eventsApi.getAnalytics(Number(id)).then((r: { data: { data: any; }; }) => r.data.data ?? null),
+    queryFn: () => eventsApi.getAnalytics(Number(id)).then((r: any) => r.data.data ?? null),
     refetchInterval: 30000,
   })
 
@@ -73,7 +73,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Registrations"
@@ -101,7 +100,6 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily registrations chart */}
         <div className="card p-6 lg:col-span-2">
           <h2 className="section-title mb-6">Daily Registration Trend</h2>
           {analytics.dailyRegistrationCounts.length > 0 ? (
@@ -141,7 +139,6 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {/* Capacity pie */}
         <div className="card p-6">
           <h2 className="section-title mb-6">Capacity Overview</h2>
           <ResponsiveContainer width="100%" height={200}>
@@ -187,7 +184,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* --- NEW ATTENDEES TABLE --- */}
       <div className="card p-6 mt-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="section-title !mb-0">Attendee List</h2>
@@ -207,7 +203,7 @@ export default function AnalyticsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-ink-900/10 text-ink-600/60 font-sans text-xs uppercase tracking-wider">
-                <th className="pb-3 pr-4 font-medium">Name</th>
+                <th className="pb-3 pr-4 font-medium">Name / Team</th>
                 <th className="pb-3 pr-4 font-medium">Contact</th>
                 <th className="pb-3 pr-4 font-medium">Course / Batch</th>
                 <th className="pb-3 pr-4 font-medium">Status</th>
@@ -217,17 +213,31 @@ export default function AnalyticsPage() {
               {attendees
                 ?.filter((a: Attendee) => filterStatus === 'ALL' || a.status === filterStatus)
                 .map((attendee: Attendee) => (
-                  <tr key={attendee.userId} className="border-b border-ink-900/5 last:border-0 hover:bg-parchment-100/50 transition-colors">
-                    <td className="py-3 pr-4 font-medium text-ink-900">{attendee.name}</td>
-                    <td className="py-3 pr-4 text-ink-600/80">{attendee.email}</td>
-                    <td className="py-3 pr-4 text-ink-600/80">
+                  <tr key={attendee.userId} className="border-b border-ink-900/5 last:border-0 hover:bg-parchment-100/30 transition-colors align-top">
+                    <td className="py-4 pr-4">
+                      <div className="font-medium text-ink-900">{attendee.name} <span className="text-[10px] text-gold font-bold ml-1 tracking-tighter">LEADER</span></div>
+                      
+                      {/* ─── NEW: TEAM MEMBERS SUB-LIST ─── */}
+                      {attendee.teammates && attendee.teammates.length > 0 && (
+                        <div className="mt-2 space-y-1.5 border-l-2 border-ink-900/10 ml-1 pl-3">
+                          {attendee.teammates.map((tm, idx) => (
+                            <div key={idx} className="text-[11px] leading-tight">
+                              <p className="text-ink-700 font-medium">{tm.name}</p>
+                              <p className="text-ink-500/60">{tm.email}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 pr-4 text-ink-600/80">{attendee.email}</td>
+                    <td className="py-4 pr-4 text-ink-600/80">
                       {attendee.course || attendee.batch ? (
                         `${attendee.course || 'N/A'} • ${attendee.batch || 'N/A'}`
                       ) : (
                         <span className="text-ink-600/30 italic">Not provided</span>
                       )}
                     </td>
-                    <td className="py-3 pr-4">
+                    <td className="py-4 pr-4">
                       <span className={`badge border text-[10px] ${
                         attendee.status === 'REGISTERED' ? 'badge-sage' : 
                         attendee.status === 'WAITLIST' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
@@ -249,8 +259,6 @@ export default function AnalyticsPage() {
           </table>
         </div>
       </div>
-      {/* ----------------------------- */}
-
     </div>
   )
 }

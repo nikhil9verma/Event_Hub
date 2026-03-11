@@ -2,8 +2,8 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-// const BASE_URL = 'http://localhost:5000/api'  // For development; replace with env variable in production
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const BASE_URL = 'http://localhost:5000/api'  // For development; replace with env variable in production
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,6 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
   
-  // Fixed: Added course and batch to the type signature
   register: (data: { name: string; email: string; password: string; course: string; batch: string }) =>
     api.post('/auth/register', data),
     
@@ -66,7 +65,7 @@ export const authApi = {
   deleteAccount: () => api.delete('/auth/account'),
 }
 
-// ─── Admin (NEW BLOCK) ────────────────────────────────────────────────────────
+// ─── Admin ────────────────────────────────────────────────────────────────────
 export const adminApi = {
   getPendingHostRequests: () => api.get('/admin/hosts/pending'),
   approveHost: (id: number) => api.post(`/admin/hosts/${id}/approve`),
@@ -97,7 +96,6 @@ export const eventsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
-  // Inside src/api/Endpoints.ts, under the eventsApi object:
 
   deleteEvent: (id: number) => 
     api.delete(`/events/${id}`),
@@ -113,8 +111,9 @@ export const eventsApi = {
   getMyEvents: (page: number) =>
     api.get('/events/my-events', { params: { page, size: 10 } }),
 
-  register: (id: number) =>
-    api.post(`/events/${id}/register`),
+  // UPDATED: Now accepts data for team registrations
+  register: (id: number, data?: any) =>
+    api.post(`/events/${id}/register`, data),
 
   cancelRegistration: (id: number) =>
     api.delete(`/events/${id}/register`),
@@ -134,18 +133,3 @@ export const eventsApi = {
   getAnalytics: (id: number) =>
     api.get(`/events/${id}/analytics`),
 }
-
-// ─── Notifications ────────────────────────────────────────────────────────────
-// export const notificationsApi = {
-//   getNotifications: (page = 0, size = 20) =>
-//     api.get('/notifications', { params: { page, size } }),
-
-//   getUnreadCount: () =>
-//     api.get('/notifications/unread-count'),
-
-//   markRead: (id: number) =>
-//     api.patch(`/notifications/${id}/read`),
-
-//   markAllRead: () =>
-//     api.post('/notifications/mark-all-read'),
-// }
