@@ -1,109 +1,67 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
-import { authApi } from '../api/Endpoints' 
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { eventsApi } from '../api/Endpoints'
+import EventCard from '../components/event/EventCard'
+import EventCardSkeleton from '../components/event/EventCardSkeleton'
+import { Event } from '../types'
 
-const schema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  course: z.string().min(2, 'Course is required (e.g. B.Tech CSE)'),
-  batch: z.string().min(4, 'Batch year is required (e.g. 2026)'),
-  confirmPassword: z.string(),
-}).refine(d => d.password === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-})
-
-type RegisterForm = z.infer<typeof schema>
-
-export default function RegisterPage() {
-  const navigate = useNavigate()
-  
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
-    resolver: zodResolver(schema),
+export default function MyRegistrationsPage() {
+  const { data: events, isLoading, isError } = useQuery({
+    queryKey: ['my-registrations'],
+    queryFn: async () => {
+      try {
+        const r = await eventsApi.getMyRegistrations();
+        // Log to console so you can inspect the exact data coming from Spring Boot
+        console.log("My Registrations API Response:", r.data); 
+        
+        // Extract the array, defaulting to an empty array if anything goes wrong
+        return r.data.data?.content || r.data.data || [];
+      } catch (error) {
+        console.error("Failed to fetch registrations:", error);
+        return [];
+      }
+    },
   })
 
-  // 1. Updated Registration Mutation (Routes to OTP Verification)
-  const registerMutation = useMutation({
-    mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => authApi.register(data),
-    // The "variables" parameter automatically contains the data submitted in the form
-    onSuccess: (res, variables) => {
-      toast.success('Account created! Please check your email for the verification code.');
-      // Redirect to verify page and securely pass the email in the URL
-      navigate(`/verify-email?email=${encodeURIComponent(variables.email)}`);
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Registration failed')
-    }
-  });
-
-  const fields = [
-    { name: 'name' as const, label: 'Full Name', type: 'text', placeholder: 'Your full name' },
-    { name: 'email' as const, label: 'Email Address', type: 'email', placeholder: 'you@university.edu' },
-    { name: 'course' as const, label: 'Course', type: 'text', placeholder: 'e.g. B.Tech CSE' }, 
-    { name: 'batch' as const, label: 'Batch Year', type: 'text', placeholder: 'e.g. 2026' },
-    { name: 'password' as const, label: 'Password', type: 'password', placeholder: '••••••••' },
-    { name: 'confirmPassword' as const, label: 'Confirm Password', type: 'password', placeholder: '••••••••' },
-  ]
+  // Safe check: If it's loading, show skeleton. 
+  // If it's an error OR events is null/undefined OR events is empty, show the "No registrations" card.
+  const showEmptyState = isError || !events || events.length === 0;
 
   return (
-    <div className="min-h-screen bg-ink-900 flex items-center justify-center p-8">
-      <div className="w-full max-w-sm">
-        <Link to="/" className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center">
-            <span className="font-serif font-bold text-ink-900 text-sm">E</span>
-          </div>
-          <span className="font-serif text-white text-xl">EventHub</span>
-        </Link>
-
-        <h1 className="font-serif text-3xl text-white mb-2">Join EventHub</h1>
-        <p className="text-parchment-200/50 font-sans text-sm mb-8">
-          Create your student account — it's free
-        </p>
-
-        <form
-          onSubmit={handleSubmit(({ confirmPassword, ...data }) => registerMutation.mutate(data))}
-          className="space-y-4"
-        >
-          {fields.map(field => (
-            <div key={field.name}>
-              <label className="block text-sm font-sans text-parchment-200/70 mb-1.5">{field.label}</label>
-              <input
-                {...register(field.name)}
-                type={field.type}
-                placeholder={field.placeholder}
-                className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
-              />
-              {errors[field.name] && (
-                <p className="text-crimson text-xs mt-1 font-sans">{errors[field.name]?.message}</p>
-              )}
-            </div>
-          ))}
-
-          <p className="text-parchment-200/30 text-xs font-sans">
-            By registering, you agree to our Terms of Service.
-          </p>
-
-          <button
-            type="submit"
-            disabled={registerMutation.isPending}
-            className="w-full btn-gold py-3.5 rounded-xl text-base mt-2"
-          >
-            {registerMutation.isPending ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="text-parchment-200/40 font-sans text-sm text-center mt-6">
-          Already have an account?{' '}
-          <Link to="/login" className="text-gold hover:text-gold-light transition-colors">
-            Sign in
-          </Link>
+    <div className="page-container py-10 animate-fade-in">
+      <div className="mb-8">
+        <h1 className="font-serif text-3xl text-ink-900 mb-2">My Registrations</h1>
+        <p className="text-ink-600 font-sans text-sm">
+          Keep track of all the events you are attending or waitlisted for.
         </p>
       </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={i} />)}
+        </div>
+      ) : showEmptyState ? (
+        <div className="card p-12 text-center flex flex-col items-center justify-center border border-dashed border-ink-900/20 bg-ink-50/50">
+          <div className="text-5xl mb-4">🎫</div>
+          <h3 className="font-serif text-xl text-ink-900 mb-2">No registrations yet</h3>
+          <p className="text-ink-600/60 font-sans text-sm mb-6 max-w-sm">
+            You haven't registered for any upcoming events. Discover what's happening on campus and secure your spot!
+          </p>
+          <Link to="/" className="btn-gold px-6 py-2.5">
+            Explore Events
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {events.map((item: any) => {
+            // Safely extract the event, whether it's wrapped in a Registration object or returned flat
+            const eventData = item.event ? item.event : item;
+            
+            // Render the card
+            return <EventCard key={eventData.id || Math.random()} event={eventData} />
+          })}
+        </div>
+      )}
     </div>
   )
 }

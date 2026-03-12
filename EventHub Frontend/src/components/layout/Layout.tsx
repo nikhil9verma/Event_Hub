@@ -1,12 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import Drawer from '@mui/material/Drawer'
 import Avatar from '@mui/material/Avatar'
 import { useAuthStore } from '../../store/authStore'
-// import { notificationsApi } from '../../api/Endpoints'
-// import NotificationPanel from '../notifications/NotificationPanel'
 import { getImageUrl } from '../event/EventCard'
+import { authApi } from '../../api/Endpoints'
 
 function BellIcon({ count }: { count: number }) {
   return (
@@ -29,13 +28,38 @@ export default function Layout() {
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  useEffect(() => {
+  if (!isAuthenticated) return;
 
-  // const { data: unreadCount } = useQuery({
-  //   queryKey: ['notifications', 'unread'],
-  //   queryFn: () => notificationsApi.getUnreadCount().then((r: { data: { data: any } }) => r.data.data ?? null),
-  //   enabled: isAuthenticated,
-  //   refetchInterval: 30000,
-  // })
+  let lastActivity = Date.now();
+  const updateActivity = () => { lastActivity = Date.now() };
+
+  // Listen for any user input
+  window.addEventListener('mousemove', updateActivity);
+  window.addEventListener('keydown', updateActivity);
+  window.addEventListener('click', updateActivity);
+
+  // Every 5 minutes, check if activity happened
+  const interval = setInterval(() => {
+    const now = Date.now();
+    if (now - lastActivity < 300000) { // 300,000ms = 5 mins
+      authApi.refreshToken()
+        .then((res: any) => {
+          // Store the new token (resets the 40-min timer)
+          useAuthStore.setState({ token: res.data.data }); 
+        })
+        .catch(() => console.error("Heartbeat failed"));
+    }
+  }, 300000);
+
+  return () => {
+    window.removeEventListener('mousemove', updateActivity);
+    window.removeEventListener('keydown', updateActivity);
+    window.removeEventListener('click', updateActivity);
+    clearInterval(interval);
+  }
+}, [isAuthenticated]);
+ 
 
   const handleLogout = () => {
     logout()
@@ -65,9 +89,7 @@ export default function Layout() {
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
                 <>
-                  {/* <div onClick={() => setNotifOpen(true)} className="cursor-pointer">
-                    <BellIcon count={unreadCount ?? 0} />
-                  </div> */}
+                  
 
                   <button
                     onClick={() => setDrawerOpen(true)}

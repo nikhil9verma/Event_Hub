@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { eventsApi } from '../api/Endpoints'
 import EventCard from '../components/event/EventCard'
 import EventCardSkeleton from '../components/event/EventCardSkeleton'
@@ -18,10 +19,57 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
   const [quoteIdx, setQuoteIdx] = useState(0)
   const { user } = useAuthStore()
 
+  // New state for dropdown and recommendations
+  const [recommendations, setRecommendations] = useState<Event[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Rotate quotes
   useEffect(() => {
     const interval = setInterval(() => setQuoteIdx(i => (i + 1) % HERO_QUOTES.length), 4000)
     return () => clearInterval(interval)
   }, [])
+
+  // Close dropdown if clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Debounced search for dropdown recommendations
+  useEffect(() => {
+    if (!q.trim()) {
+      setRecommendations([])
+      setIsDropdownOpen(false)
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    setIsDropdownOpen(true)
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        // Fetch top 10 matching events using your existing API
+        const response = await eventsApi.getEvents({ search: q, page: 0, size: 10 } as EventFilters)
+        const fetchedEvents = response?.data?.data?.content || []
+        setRecommendations(fetchedEvents)
+      } catch (error) {
+        console.error("Failed to fetch recommendations:", error)
+        setRecommendations([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 500) // 500ms delay to prevent API spam
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [q])
 
   return (
     <div className="relative w-full py-20 md:py-28 bg-ink-900 overflow-hidden">
@@ -41,7 +89,7 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
 
       {/* Hero Content (Positioned on top of the background) */}
       <div className="relative z-10 page-container flex items-center h-full">
-        <div className="max-w-2xl">
+        <div className="max-w-2xl w-full">
           
           <span className="text-gold font-sans text-sm font-bold tracking-widest uppercase mb-4 block">
             University Event Hub
@@ -56,21 +104,96 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
             {HERO_QUOTES[quoteIdx]}
           </p>
 
-          {/* Search Bar matching the mockup */}
-          <div className="flex gap-4 max-w-xl">
-            <div className="flex-1 bg-ink-800/80 backdrop-blur-md border border-ink-700/50 rounded-xl px-4 py-3 flex items-center shadow-lg transition-all focus-within:border-gold/50 focus-within:bg-ink-800">
-              <span className="text-ink-400 mr-3">🔍</span>
-              <input 
-                type="text" 
-                placeholder="Search events, categories..." 
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && onSearch(q)}
-                className="bg-transparent border-none outline-none text-white w-full placeholder:text-ink-400/70 font-sans"
-              />
+          {/* Search Bar with Dropdown */}
+          <div className="flex gap-4 max-w-xl w-full">
+            <div className="relative flex-1" ref={dropdownRef}>
+              
+              <div className="bg-ink-800/80 backdrop-blur-md border border-ink-700/50 rounded-xl px-4 py-3 flex items-center shadow-lg transition-all focus-within:border-gold/50 focus-within:bg-ink-800 w-full">
+                {/* Search Icon or Spinner */}
+                {isSearching ? (
+                  <svg className="w-5 h-5 text-gold animate-spin mr-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <span className="text-ink-400 mr-3 shrink-0">🔍</span>
+                )}
+                
+                <input 
+                  type="text" 
+                  placeholder="Search events, categories..." 
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  onFocus={() => { if (q) setIsDropdownOpen(true) }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      setIsDropdownOpen(false)
+                      onSearch(q)
+                    }
+                  }}
+                  className="bg-transparent border-none outline-none text-white w-full placeholder:text-ink-400/70 font-sans"
+                />
+
+                {/* Clear Button (X) */}
+                {q && !isSearching && (
+                  <button 
+                    onClick={() => {
+                      setQ('')
+                      setIsDropdownOpen(false)
+                      onSearch('')
+                    }}
+                    className="ml-2 text-ink-400 hover:text-white transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Recommendations Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-ink-900/5 shadow-xl overflow-hidden z-50 animate-fade-in">
+                  {isSearching && recommendations.length === 0 ? (
+                    <div className="p-4 text-sm text-ink-500 text-center flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 rounded-full border-2 border-gold border-t-transparent animate-spin"></span>
+                      Searching...
+                    </div>
+                  ) : recommendations.length > 0 ? (
+                    <ul className="max-h-80 overflow-y-auto py-2">
+                      {recommendations.slice(0, 10).map((event) => (
+                        <li key={event.id}>
+                          <Link
+                            to={`/events/${event.id}`}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-ink-50 transition-colors group"
+                          >
+                            <div className="w-8 h-8 rounded bg-ink-100 flex items-center justify-center shrink-0">
+                              <span className="text-lg">🎫</span>
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="text-sm font-bold text-ink-900 truncate group-hover:text-yellow-600 transition-colors">
+                                {event.title}
+                              </span>
+                              <span className="text-xs text-ink-500 truncate">
+                                {event.category} • {new Date(event.eventDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : q.trim() ? (
+                    <div className="p-4 text-sm text-ink-500 text-center">
+                      No events found for "{q}"
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
+
             <button 
-              onClick={() => onSearch(q)}
+              onClick={() => {
+                setIsDropdownOpen(false)
+                onSearch(q)
+              }}
               className="btn-gold px-8 py-3 rounded-xl font-semibold shadow-lg hover:-translate-y-0.5 transition-transform"
             >
               Search
@@ -171,7 +294,7 @@ export default function HomePage() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                   {events.map((event: Event, i: number) => (
-                    <EventCard key={event.id} event={event} featured={i === 0 && !filters.search} />
+                    <EventCard key={event.id} event={event}  />
                   ))}
                 </div>
                 <Pagination page={filters.page || 0} totalPages={totalPages} onChange={p => setFilters(f => ({ ...f, page: p }))} />

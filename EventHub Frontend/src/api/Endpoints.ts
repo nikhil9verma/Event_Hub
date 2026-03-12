@@ -1,24 +1,28 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-
 // const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-const BASE_URL = 'http://localhost:5000/api'  // For development; replace with env variable in production
+const BASE_URL = 'http://localhost:5000/api'  // For development
+
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
+// ─── 1. FIXED: Request Interceptor (Attaches your JWT token!) ───
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().token
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
 
+// ─── 2. FIXED: Response Interceptor (Catches BOTH 401 and 403 errors!) ───
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }
@@ -28,6 +32,15 @@ api.interceptors.response.use(
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
+  refreshToken: () => api.post('/auth/refresh'),
+  
+  // ─── 3. FIXED: Adjusted signatures to match exactly what ProfilePage.tsx sends ───
+  requestEmailChange: (newEmail: string) =>
+    api.post('/auth/profile/email/request', { newEmail }),
+
+  verifyEmailChange: (newEmail: string, otp: string) =>
+    api.post('/auth/profile/email/verify', { newEmail, otp }),
+    
   forgotPassword: (email: string) => 
     api.post(`/auth/forgot-password?email=${encodeURIComponent(email)}`),
     
@@ -43,10 +56,10 @@ export const authApi = {
   verifyRegistration: (email: string, otp: string) =>
     api.post(`/auth/verify-registration?email=${email}&otp=${otp}`),
   
-  getMe: () =>
+  getProfile: () =>  // Renamed from getMe to getProfile to match ProfilePage.tsx
     api.get('/auth/profile'),
   
-  updateProfile: (data: { name: string }) =>
+  updateProfile: (data: { name: string; course?: string; batch?: string }) =>
     api.patch('/auth/profile', data),
   
   uploadAvatar: (file: File) => {
@@ -111,14 +124,13 @@ export const eventsApi = {
   getMyEvents: (page: number) =>
     api.get('/events/my-events', { params: { page, size: 10 } }),
 
-  // UPDATED: Now accepts data for team registrations
   register: (id: number, data?: any) =>
     api.post(`/events/${id}/register`, data),
 
   cancelRegistration: (id: number) =>
     api.delete(`/events/${id}/register`),
 
-  getMyRegistrations: (page: number) =>
+  getMyRegistrations: (page: number = 0) =>
     api.get('/registrations/my', { params: { page, size: 10 } }),
 
   getComments: (id: number, page = 0, size = 20) =>

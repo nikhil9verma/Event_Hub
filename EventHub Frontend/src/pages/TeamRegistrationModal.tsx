@@ -1,142 +1,122 @@
-import { useForm, useFieldArray } from 'react-hook-form'
-import { Event } from '../types'
-import { useEffect } from 'react'
-import { useAuthStore } from '../store/authStore'
+import { useState } from 'react'
+import type { Event } from '../types'
 
-interface TeamRegistrationModalProps {
+interface Props {
   event: Event
   isOpen: boolean
   onClose: () => void
-  onSubmitTeam: (teamData: { teamMembers: { name: string; email: string }[] }) => void
+  onSubmitTeam: (data: any) => void
   isPending: boolean
 }
 
-interface FormValues {
-  teamMembers: { name: string; email: string }[]
-}
-
-export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmitTeam, isPending }: TeamRegistrationModalProps) {
-  const { user } = useAuthStore()
-  
-  // The number of extra teammates we need to ask for (excluding the leader)
-  const maxExtraMembers = event.maxTeamSize - 1
-  const minExtraMembers = event.minTeamSize - 1
-
-  const { register, handleSubmit, control, formState: { errors }, reset } = useForm<FormValues>({
-    defaultValues: {
-      teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' })
-    }
-  })
-
-  const { fields } = useFieldArray({
-    control,
-    name: "teamMembers"
-  })
-
-  // Reset form when modal opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      reset({ teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' }) })
-    }
-  }, [isOpen, maxExtraMembers, reset])
+export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmitTeam, isPending }: Props) {
+  const [teamName, setTeamName] = useState('')
+  const [emails, setEmails] = useState<string[]>(Array(event.minTeamSize - 1).fill(''))
 
   if (!isOpen) return null
 
-  const handleFormSubmit = (data: FormValues) => {
-    // Filter out completely empty optional rows before sending to backend
-    const validMembers = data.teamMembers.filter(member => member.name.trim() !== '' && member.email.trim() !== '')
-    onSubmitTeam({ teamMembers: validMembers })
+  const handleAddMember = () => {
+    if (emails.length + 1 < event.maxTeamSize) {
+      setEmails([...emails, ''])
+    }
+  }
+
+  const handleRemoveMember = (index: number) => {
+    setEmails(emails.filter((_, i) => i !== index))
+  }
+
+  const updateEmail = (index: number, value: string) => {
+    const newEmails = [...emails]
+    newEmails[index] = value
+    setEmails(newEmails)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Filter out empty rows
+    const validEmails = emails.filter(e => e.trim() !== '')
+    
+    onSubmitTeam({
+      teamName: teamName.trim(),
+      teamMembers: validEmails.map(email => ({ email: email.trim() }))
+    })
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="p-6 border-b border-ink-900/5 flex justify-between items-center bg-ink-50/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="bg-white rounded-2xl w-full max-w-lg relative z-10 shadow-2xl overflow-hidden animate-fade-in">
+        <div className="px-6 py-5 border-b border-ink-900/5 flex justify-between items-center bg-ink-50/50">
           <div>
-            <h2 className="font-serif text-2xl text-ink-900">Team Registration</h2>
-            <p className="text-sm text-ink-600 font-sans mt-1">
-              {event.minTeamSize === event.maxTeamSize 
-                ? `This event requires a team of exactly ${event.maxTeamSize}.` 
-                : `This event requires a team of ${event.minTeamSize} to ${event.maxTeamSize} members.`}
-            </p>
+            <h2 className="font-serif text-xl text-ink-900">Register Team</h2>
+            <p className="text-xs text-ink-500 font-sans mt-0.5">{event.title}</p>
           </div>
-          <button onClick={onClose} className="text-ink-600 hover:text-crimson transition-colors font-bold text-xl">✕</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-900 text-2xl transition-colors">&times;</button>
         </div>
 
-        {/* Form Body (Scrollable) */}
-        <div className="p-6 overflow-y-auto flex-1">
-          <form id="team-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-            
-            {/* Slot 1: The Leader (Read Only) */}
-            <div className="p-4 border-2 border-gold/30 bg-gold/5 rounded-xl">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gold mb-3 flex items-center gap-2">
-                👑 Team Leader (You)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-70 cursor-not-allowed">
-                <input value={user?.name || ''} disabled className="input-field py-2 text-sm bg-white" />
-                <input value={user?.email || ''} disabled className="input-field py-2 text-sm bg-white" />
-              </div>
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="mb-6">
+            <label className="block text-xs font-bold uppercase tracking-wider text-ink-600 mb-2">Team Name <span className="text-crimson">*</span></label>
+            <input
+              required
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="e.g. The Code Fathers"
+              className="w-full px-4 py-2.5 bg-white border border-ink-200 rounded-xl text-sm focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-4 mb-6">
+            <div className="flex justify-between items-end">
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-600">Teammate Emails <span className="text-crimson">*</span></label>
+              <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-1 rounded">Size: {emails.length + 1} / {event.maxTeamSize}</span>
             </div>
+            
+            <p className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-100 flex gap-2">
+              <span className="text-sm">⚠️</span> 
+              <span>All teammates must have an existing account on EventHub. We will verify these emails automatically.</span>
+            </p>
 
-            {/* Teammate Slots */}
-            {fields.map((item, index) => {
-              const isRequired = index < minExtraMembers;
-              
-              return (
-                <div key={item.id} className="p-4 border border-ink-900/10 rounded-xl relative">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-ink-900/60 mb-3 flex items-center gap-2">
-                    👤 Teammate {index + 2}
-                    {!isRequired && <span className="badge border bg-ink-50 text-[10px] lowercase normal-case">Optional</span>}
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <input 
-                        {...register(`teamMembers.${index}.name`, { 
-                          required: isRequired ? "Name is required" : false 
-                        })} 
-                        placeholder="Full Name"
-                        className="input-field py-2 text-sm"
-                      />
-                      {errors.teamMembers?.[index]?.name && (
-                        <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.name?.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <input 
-                        {...register(`teamMembers.${index}.email`, { 
-                          required: isRequired ? "Email is required" : false,
-                          pattern: { value: /^\S+@\S+$/i, message: "Invalid email" }
-                        })} 
-                        placeholder="Email Address"
-                        className="input-field py-2 text-sm"
-                      />
-                      {errors.teamMembers?.[index]?.email && (
-                        <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.email?.message}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </form>
-        </div>
+            {emails.map((email, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  required={index < event.minTeamSize - 1} // Only required up to minTeamSize
+                  type="email"
+                  value={email}
+                  onChange={(e) => updateEmail(index, e.target.value)}
+                  placeholder={`Teammate ${index + 1} Email`}
+                  className="w-full px-4 py-2 bg-white border border-ink-200 rounded-lg text-sm focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all"
+                />
+                {index >= event.minTeamSize - 1 && (
+                  <button type="button" onClick={() => handleRemoveMember(index)} className="px-3 text-crimson hover:bg-crimson/10 rounded-lg transition-colors">
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {/* Footer Actions */}
-        <div className="p-6 border-t border-ink-900/5 bg-ink-50/50 flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="btn-outline">Cancel</button>
-          <button 
-            type="submit" 
-            form="team-form"
-            disabled={isPending} 
-            className="btn-gold px-8 flex items-center gap-2"
-          >
-            {isPending ? 'Registering...' : 'Complete Registration →'}
-          </button>
-        </div>
+          {emails.length + 1 < event.maxTeamSize && (
+            <button
+              type="button"
+              onClick={handleAddMember}
+              className="w-full py-2.5 border-2 border-dashed border-ink-200 text-ink-500 rounded-xl text-sm font-medium hover:border-gold hover:text-gold transition-colors mb-6"
+            >
+              + Add Another Teammate
+            </button>
+          )}
 
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="flex-1 py-3 bg-ink-50 text-ink-600 rounded-xl text-sm font-medium hover:bg-ink-100 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isPending} className="flex-1 py-3 btn-gold rounded-xl text-sm">
+              {isPending ? 'Verifying...' : 'Complete Registration'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

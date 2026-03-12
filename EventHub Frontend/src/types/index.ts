@@ -29,7 +29,7 @@ export interface Attendee {
   batch?: string;
   status: RegistrationStatus;
   registeredAt: string;
-  // ─── NEW: For Host Analytics Dashboard ───
+  teamName?: string;
   teammates?: { name: string; email: string }[];
 }
 

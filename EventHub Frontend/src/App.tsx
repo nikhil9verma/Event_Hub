@@ -12,9 +12,10 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import MyEventsPage from './pages/MyEventPage'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import ForgotPasswordPage from './pages/ForgotPassword'
-
-// 1. Added your two new imports here!
 import AdminDashboardPage from './pages/AdminDashboard'
+
+// NEW: Added this import so the app doesn't crash when redirecting from RegisterPage
+import VerifyEmailPage from './pages/VerifyEmailPage' 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -24,7 +25,7 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?
   return <>{children}</>
 }
 
-// Stable element references — created once, never recreated on App re-render
+// Stable element references
 const loginElement = <LoginPage />
 const registerElement = <RegisterPage />
 
@@ -36,38 +37,45 @@ export default function App() {
         <Route path="/register" element={registerElement} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         
+        {/* NEW: Added Verify Email Route */}
+        <Route path="/verify-email" element={<VerifyEmailPage />} /> 
                 
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="events/:id" element={<EventDetailPage />} />
+          
           <Route path="events/create" element={
             <ProtectedRoute roles={['HOST', 'SUPER_ADMIN']}>
               <CreateEventPage />
             </ProtectedRoute>
           } />
+          
           <Route path="events/:id/edit" element={
             <ProtectedRoute roles={['HOST', 'SUPER_ADMIN']}>
               <CreateEventPage />
             </ProtectedRoute>
           } />
+          
           <Route path="events/:id/analytics" element={
             <ProtectedRoute roles={['HOST', 'SUPER_ADMIN']}>
               <AnalyticsPage />
             </ProtectedRoute>
           } />
+          
           <Route path="profile" element={
             <ProtectedRoute><ProfilePage /></ProtectedRoute>
           } />
+          
           <Route path="my-registrations" element={
             <ProtectedRoute><MyRegistrationsPage /></ProtectedRoute>
           } />
+          
           <Route path="my-events" element={
             <ProtectedRoute roles={['HOST', 'SUPER_ADMIN']}>
               <MyEventsPage />
             </ProtectedRoute>
           } />
           
-          {/* 3. Added your Super Admin Dashboard Route */}
           <Route path="admin" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
               <AdminDashboardPage />

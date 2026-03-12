@@ -7,23 +7,25 @@ interface TeamRegistrationModalProps {
   event: Event
   isOpen: boolean
   onClose: () => void
-  onSubmitTeam: (teamData: { teamMembers: { name: string; email: string }[] }) => void
+  onSubmitTeam: (teamData: { teamName: string; teamMembers: { name: string; email: string }[] }) => void
   isPending: boolean
 }
 
 interface FormValues {
+  teamName: string 
   teamMembers: { name: string; email: string }[]
 }
 
 export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmitTeam, isPending }: TeamRegistrationModalProps) {
   const { user } = useAuthStore()
   
-  // The number of extra teammates we need to ask for (excluding the leader)
-  const maxExtraMembers = event.maxTeamSize - 1
-  const minExtraMembers = event.minTeamSize - 1
+  // FIXED: Ensure these values never drop below 0 to prevent "RangeError: Invalid array length"
+  const maxExtraMembers = Math.max(0, (event?.maxTeamSize || 1) - 1)
+  const minExtraMembers = Math.max(0, (event?.minTeamSize || 1) - 1)
 
   const { register, handleSubmit, control, formState: { errors }, reset } = useForm<FormValues>({
     defaultValues: {
+      teamName: '', 
       teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' })
     }
   })
@@ -36,7 +38,10 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      reset({ teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' }) })
+      reset({ 
+        teamName: '', 
+        teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' }) 
+      })
     }
   }, [isOpen, maxExtraMembers, reset])
 
@@ -45,7 +50,11 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
   const handleFormSubmit = (data: FormValues) => {
     // Filter out completely empty optional rows before sending to backend
     const validMembers = data.teamMembers.filter(member => member.name.trim() !== '' && member.email.trim() !== '')
-    onSubmitTeam({ teamMembers: validMembers })
+    
+    onSubmitTeam({ 
+      teamName: data.teamName, 
+      teamMembers: validMembers 
+    })
   }
 
   return (
@@ -57,9 +66,9 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
           <div>
             <h2 className="font-serif text-2xl text-ink-900">Team Registration</h2>
             <p className="text-sm text-ink-600 font-sans mt-1">
-              {event.minTeamSize === event.maxTeamSize 
-                ? `This event requires a team of exactly ${event.maxTeamSize}.` 
-                : `This event requires a team of ${event.minTeamSize} to ${event.maxTeamSize} members.`}
+              {event?.minTeamSize === event?.maxTeamSize 
+                ? `This event requires a team of exactly ${event?.maxTeamSize || 1}.` 
+                : `This event requires a team of ${event?.minTeamSize || 1} to ${event?.maxTeamSize || 1} members.`}
             </p>
           </div>
           <button onClick={onClose} className="text-ink-600 hover:text-crimson transition-colors font-bold text-xl">✕</button>
@@ -69,14 +78,29 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
         <div className="p-6 overflow-y-auto flex-1">
           <form id="team-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
             
+            {/* Team Name Input */}
+            <div className="p-4 border border-ink-900/10 rounded-xl">
+              <label className="block text-sm font-bold text-ink-900 mb-2">
+                Team Name <span className="text-crimson">*</span>
+              </label>
+              <input 
+                {...register('teamName', { required: "Team name is required" })} 
+                placeholder="e.g. The Avengers"
+                className="input-field py-2 text-sm w-full"
+              />
+              {errors.teamName && (
+                <p className="text-crimson text-xs mt-1">{errors.teamName.message}</p>
+              )}
+            </div>
+
             {/* Slot 1: The Leader (Read Only) */}
             <div className="p-4 border-2 border-gold/30 bg-gold/5 rounded-xl">
               <h3 className="text-xs font-bold uppercase tracking-wider text-gold mb-3 flex items-center gap-2">
                 👑 Team Leader (You)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-70 cursor-not-allowed">
-                <input value={user?.name || ''} disabled className="input-field py-2 text-sm bg-white" />
-                <input value={user?.email || ''} disabled className="input-field py-2 text-sm bg-white" />
+                <input value={user?.name || ''} disabled className="input-field py-2 text-sm bg-white w-full" />
+                <input value={user?.email || ''} disabled className="input-field py-2 text-sm bg-white w-full" />
               </div>
             </div>
 
@@ -98,7 +122,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
                           required: isRequired ? "Name is required" : false 
                         })} 
                         placeholder="Full Name"
-                        className="input-field py-2 text-sm"
+                        className="input-field py-2 text-sm w-full"
                       />
                       {errors.teamMembers?.[index]?.name && (
                         <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.name?.message}</p>
@@ -111,7 +135,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
                           pattern: { value: /^\S+@\S+$/i, message: "Invalid email" }
                         })} 
                         placeholder="Email Address"
-                        className="input-field py-2 text-sm"
+                        className="input-field py-2 text-sm w-full"
                       />
                       {errors.teamMembers?.[index]?.email && (
                         <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.email?.message}</p>
