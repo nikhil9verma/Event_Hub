@@ -56,6 +56,8 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
             """, nativeQuery = true)
     List<Object[]> findDailyRegistrationCounts(@Param("eventId") Long eventId);
 
+    Page<Registration> findByUserIdOrderByRegisteredAtDesc(Long userId, Pageable pageable);
+
     @Modifying
     @Query("DELETE FROM Registration r WHERE r.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);

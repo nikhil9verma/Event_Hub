@@ -39,9 +39,12 @@ public class FeedbackService {
                                       Long userId,
                                       FeedbackRequests.CommentRequest request) {
 
-        Event event = getCompletedEvent(eventId);
+        // 🟢 FIX: Use getValidEventForComment instead of getCompletedEvent
+        Event event = getValidEventForComment(eventId);
         User user = getActiveUser(userId);
-        verifyAttended(eventId, userId);
+
+        // Ensure they are registered to chat
+        verifyRegistered(eventId, userId);
 
         Comment comment = Comment.builder()
                 .event(event)
@@ -69,9 +72,10 @@ public class FeedbackService {
                                             Long userId,
                                             FeedbackRequests.RatingRequest request) {
 
+        // Ratings still require the event to be COMPLETED
         Event event = getCompletedEvent(eventId);
         User user = getActiveUser(userId);
-        verifyAttended(eventId, userId);
+        verifyRegistered(eventId, userId);
 
         if (request.getStars() < 1 || request.getStars() > 5) {
             throw new BusinessException("Rating must be between 1 and 5 stars");
@@ -94,18 +98,30 @@ public class FeedbackService {
 
     /* ========================= VALIDATION ========================= */
 
-    private void verifyAttended(Long eventId, Long userId) {
-
-        boolean attended = registrationRepository
+    // 🟢 FIX: Renamed and updated the error message to make sense for upcoming events
+    private void verifyRegistered(Long eventId, Long userId) {
+        boolean registered = registrationRepository
                 .findByUserIdAndEventId(userId, eventId)
                 .filter(r -> r.getStatus() == RegistrationStatus.REGISTERED)
                 .isPresent();
 
-        if (!attended) {
+        if (!registered) {
             throw new BusinessException(
-                    "You must have attended this event to leave feedback"
+                    "You must be registered for this event to participate in the discussion."
             );
         }
+    }
+
+    // 🟢 FIX: Added this new method to allow comments on any event that isn't suspended
+    private Event getValidEventForComment(Long eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+        if (event.getStatus() == EventStatus.SUSPENDED) {
+            throw new BusinessException("Discussion is disabled for suspended events.");
+        }
+
+        return event;
     }
 
     private Event getCompletedEvent(Long eventId) {
@@ -115,7 +131,7 @@ public class FeedbackService {
 
         if (event.getStatus() != EventStatus.COMPLETED) {
             throw new BusinessException(
-                    "Feedback can only be given for completed events"
+                    "Feedback and ratings can only be given for completed events."
             );
         }
 

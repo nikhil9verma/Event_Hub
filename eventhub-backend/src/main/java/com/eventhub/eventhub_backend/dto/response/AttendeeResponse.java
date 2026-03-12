@@ -17,8 +17,7 @@ public class AttendeeResponse {
     private String batch;
     private RegistrationStatus status;
     private LocalDateTime registeredAt;
-
-    // ─── NEW: List of extra teammates ───
+    private String teamName;
     private List<TeamMemberResponse> teammates;
 
     @Data

@@ -1,6 +1,5 @@
 package com.eventhub.eventhub_backend.exception;
 
-
 import com.eventhub.eventhub_backend.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,7 +17,7 @@ import java.util.Map;
 
 @RestControllerAdvice
 @Slf4j
-public class GlobalExceptionHandler  {
+public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
@@ -32,6 +31,7 @@ public class GlobalExceptionHandler  {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    // PERFECT AS-IS: Handles @Valid failures and maps field names to error messages
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -40,6 +40,7 @@ public class GlobalExceptionHandler  {
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
+
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ApiResponse.<Map<String, String>>builder()
                         .success(false)

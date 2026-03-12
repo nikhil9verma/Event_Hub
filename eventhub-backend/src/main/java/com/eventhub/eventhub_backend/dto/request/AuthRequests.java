@@ -51,11 +51,35 @@ public class AuthRequests {
     public static class UpdateProfile {
         @NotBlank(message = "Name is required")
         @Size(min = 2, max = 100)
+        private String name;
+
         @NotBlank(message = "Course is required")
         private String course;
 
         @NotBlank(message = "Batch is required")
         private String batch;
-        private String name;
+
+        // --- NEW: Added Email Field ---
+        @Email(message = "Invalid email format")
+        private String email;
     }
+    // Inside com.eventhub.eventhub_backend.dto.request.AuthRequests;
+
+    @Data
+    public static class RequestEmailChange {
+        @NotBlank(message = "New email is required")
+        @Email(message = "Invalid email format")
+        private String newEmail;
+    }
+
+    @Data
+    public static class VerifyEmailChange {
+        @NotBlank(message = "New email is required")
+        @Email(message = "Invalid email format")
+        private String newEmail;
+
+        @NotBlank(message = "OTP is required")
+        private String otp;
+    }
+
 }

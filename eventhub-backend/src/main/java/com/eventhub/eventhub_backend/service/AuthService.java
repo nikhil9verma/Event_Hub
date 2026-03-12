@@ -14,6 +14,7 @@ import com.eventhub.eventhub_backend.exception.BusinessException;
 import com.eventhub.eventhub_backend.exception.ResourceNotFoundException;
 import com.eventhub.eventhub_backend.repository.*;
 import com.eventhub.eventhub_backend.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -57,7 +58,7 @@ public class AuthService {
 
         // Restore random 6-digit OTP generation
         String otp = String.format("%06d", new Random().nextInt(999999));
-        
+
         // Save to temporary table instead of User table
         tokenRepository.deleteByEmail(request.getEmail());
         tokenRepository.save(VerificationToken.builder()
@@ -127,14 +128,8 @@ public class AuthService {
         return toUserResponse(findActiveUser(userId));
     }
 
-    @Transactional
-    public UserResponse updateProfile(Long userId, AuthRequests.UpdateProfile request) {
-        User user = findActiveUser(userId);
-        user.setName(request.getName());
-        user.setCourse(request.getCourse()); // Added course
-        user.setBatch(request.getBatch());   // Added batch
-        return toUserResponse(userRepository.save(user));
-    }
+
+
 
     @Transactional
     public UserResponse updateProfileImage(Long userId, String imageUrl) {
@@ -183,7 +178,95 @@ public class AuthService {
                 .findByStatusOrderByRequestedAtAsc(HostRequestStatus.PENDING)
                 .stream().map(this::toHostRequestResponse).toList();
     }
+    // ─── Email Change Flow ──────────────────────────────────────────────────────
 
+    @Transactional
+    public String requestEmailChange(Long userId, AuthRequests.RequestEmailChange request) {
+        User user = findActiveUser(userId);
+        String newEmail = request.getNewEmail().trim();
+
+        if (user.getEmail().equalsIgnoreCase(newEmail)) {
+            throw new BusinessException("This is already your current email address.");
+        }
+
+        if (userRepository.existsByEmail(newEmail)) {
+            throw new BusinessException("This email is already in use by another account.");
+        }
+
+        // Generate OTP
+        String otp = String.format("%06d", new Random().nextInt(999999));
+
+        // Save OTP to the temporary token table using the NEW email
+        tokenRepository.deleteByEmail(newEmail);
+        tokenRepository.save(VerificationToken.builder()
+                .email(newEmail)
+                .otpCode(otp)
+                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                .build());
+
+        // Send the OTP to the NEW email
+        emailService.sendOtpEmail(newEmail, otp);
+        return "OTP sent to your new email address. Please verify to complete the change.";
+    }
+    // ─── INSIDE AuthService.java ───
+
+    @Transactional
+    public AuthResponse updateProfile(Long userId, AuthRequests.UpdateProfile request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+
+        user.setName(request.getName());
+        user.setCourse(request.getCourse());
+        user.setBatch(request.getBatch());
+
+        User savedUser = userRepository.save(user);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
+        String newToken = jwtTokenProvider.generateToken(userDetails);
+
+        return buildAuthResponse(savedUser, newToken);
+    }
+
+    @Transactional
+    public AuthResponse verifyEmailChange(Long userId, AuthRequests.VerifyEmailChange request) {
+        String newEmail = request.getNewEmail().trim();
+
+        VerificationToken token = tokenRepository.findByEmailAndOtpCode(newEmail, request.getOtp())
+                .orElseThrow(() -> new BusinessException("Invalid or incorrect OTP."));
+
+        if (token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            tokenRepository.deleteByEmail(newEmail);
+            throw new BusinessException("OTP has expired.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        user.setEmail(newEmail);
+        User savedUser = userRepository.save(user);
+
+        tokenRepository.deleteByEmail(newEmail);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
+        String newToken = jwtTokenProvider.generateToken(userDetails);
+
+        return buildAuthResponse(savedUser, newToken);
+    }
+
+    @Transactional
+    public String refreshToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            String oldToken = bearerToken.substring(7);
+
+            // Extract email and generate a fresh 40-minute token
+            String email = jwtTokenProvider.getUsername(oldToken);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+            return jwtTokenProvider.generateToken(userDetails);
+        }
+        throw new BusinessException("Invalid session");
+    }
     @Transactional
     public UserResponse approveHostRequest(Long requestId) {
         HostRequest hostRequest = hostRequestRepository.findById(requestId)
@@ -326,7 +409,7 @@ public class AuthService {
 
         // Restore random 6-digit OTP generation
         String otp = String.format("%06d", new Random().nextInt(999999));
-        
+
         // Save OTP to the temporary token table
         tokenRepository.deleteByEmail(email);
         tokenRepository.save(VerificationToken.builder()

@@ -59,4 +59,13 @@ public class JwtTokenProvider {
             return false;
         }
     }
+
+    public String getUsername(String token) {
+        return Jwts.parser()
+                .verifyWith(key())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
 }

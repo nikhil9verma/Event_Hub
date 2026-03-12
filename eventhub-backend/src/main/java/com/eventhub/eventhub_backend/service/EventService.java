@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort; // NEW IMPORT
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -111,6 +112,7 @@ public class EventService {
                         .batch(reg.getUser().getBatch())
                         .status(reg.getStatus())
                         .registeredAt(reg.getRegisteredAt())
+                        .teamName(reg.getTeamName())
                         .teammates(reg.getTeamMembers().stream()
                                 .map(tm -> AttendeeResponse.TeamMemberResponse.builder()
                                         .name(tm.getName())
@@ -192,7 +194,13 @@ public class EventService {
 
     public Page<EventResponse> getEvents(EventFilterRequest filter, @Nullable Long currentUserId) {
         Specification<Event> spec = buildSpecification(filter, currentUserId);
-        PageRequest pageable = PageRequest.of(filter.getPage(), filter.getSize());
+
+        // ─── UPDATED: Added default DESC sorting by createdAt ───
+        PageRequest pageable = PageRequest.of(
+                filter.getPage(),
+                filter.getSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
 
         return eventRepository.findAll(spec, pageable)
                 .map(event -> toResponse(event, Optional.ofNullable(currentUserId)));
@@ -204,7 +212,14 @@ public class EventService {
     }
 
     public Page<EventResponse> getHostEvents(Long hostId, int page, int size) {
-        return eventRepository.findByHostId(hostId, PageRequest.of(page, size))
+        // ─── UPDATED: Added default DESC sorting by createdAt ───
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        return eventRepository.findByHostId(hostId, pageable)
                 .map(event -> toResponse(event, Optional.empty()));
     }
 
@@ -228,22 +243,34 @@ public class EventService {
         emailsToCheck.add(user.getEmail());
 
         if (request != null && request.getTeamMembers() != null && !request.getTeamMembers().isEmpty()) {
+
+            if (request.getTeamName() == null || request.getTeamName().trim().isEmpty()) {
+                throw new BusinessException("Team name is required for team registrations.");
+            }
+
             totalTeamSize += request.getTeamMembers().size();
 
             for (TeamRegistrationRequest.TeammateDto dto : request.getTeamMembers()) {
                 if (emailsToCheck.contains(dto.getEmail())) {
                     throw new BusinessException("Duplicate emails found within your team registration.");
                 }
+
+                User teammateUser = userRepository.findByEmailAndDeletedFalse(dto.getEmail())
+                        .orElseThrow(() -> new BusinessException("Registration failed: User with email '" + dto.getEmail() + "' is not registered on the platform. All teammates must create an account first."));
+
                 emailsToCheck.add(dto.getEmail());
                 teamMembers.add(TeamMember.builder()
-                        .name(dto.getName())
-                        .email(dto.getEmail())
+                        .name(teammateUser.getName()) // Pulled from DB
+                        .email(teammateUser.getEmail())
                         .build());
             }
         }
 
-        if (totalTeamSize < event.getMinTeamSize() || totalTeamSize > event.getMaxTeamSize()) {
-            throw new BusinessException("Team size must be between " + event.getMinTeamSize() + " and " + event.getMaxTeamSize() + " (including the leader).");
+        int minTeam = event.getMinTeamSize() != null ? event.getMinTeamSize() : 1;
+        int maxTeam = event.getMaxTeamSize() != null ? event.getMaxTeamSize() : 1;
+
+        if (totalTeamSize < minTeam || totalTeamSize > maxTeam) {
+            throw new BusinessException("Team size must be between " + minTeam + " and " + maxTeam + " (including the leader).");
         }
 
         Optional<Registration> existing = registrationRepository.findByUserIdAndEventId(userId, eventId);
@@ -268,6 +295,7 @@ public class EventService {
                 .user(user)
                 .event(event)
                 .status(status)
+                .teamName(request != null ? request.getTeamName() : null)
                 .build();
 
         for (TeamMember tm : teamMembers) {
@@ -277,7 +305,6 @@ public class EventService {
 
         Registration saved = registrationRepository.save(registration);
 
-        // Ensure teamMembers are passed to handle emails properly
         handlePostRegistration(user, event, status, teamMembers);
         updateEventStatus(event);
         eventRepository.save(event);
@@ -302,6 +329,15 @@ public class EventService {
         promoteFromWaitlist(event);
         updateEventStatus(event);
         eventRepository.save(event);
+    }
+    @Transactional(readOnly = true)
+    public Page<EventResponse> getMyRegistrations(Long userId, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+
+        // Find all registrations for this user
+        return registrationRepository.findByUserIdOrderByRegisteredAtDesc(userId, pageable)
+                // Convert the Registration's Event into an EventResponse
+                .map(registration -> toResponse(registration.getEvent(), Optional.of(userId)));
     }
 
     @Transactional
@@ -391,7 +427,6 @@ public class EventService {
         return registered < event.getMaxParticipants() ? RegistrationStatus.REGISTERED : RegistrationStatus.WAITLIST;
     }
 
-    // ─── UPDATED EMAIL DISPATCH LOGIC ───
     private void handlePostRegistration(User user, Event event, RegistrationStatus status, List<TeamMember> teamMembers) {
         boolean isWaitlist = (status == RegistrationStatus.WAITLIST);
 
@@ -468,6 +503,7 @@ public class EventService {
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), root.<LocalDateTime>get("eventDate"))
                     .otherwise(cb.nullLiteral(LocalDateTime.class));
 
+            // ─── UPDATED: Appended cb.desc(root.get("createdAt")) to tie-break and ensure latest events come first ───
             if (currentUserId != null) {
                 Join<Event, Registration> regJoin = root.join("registrations", JoinType.LEFT);
                 regJoin.on(
@@ -483,12 +519,14 @@ public class EventService {
                 query.orderBy(
                         cb.asc(eventPhase),
                         cb.desc(isRegistered),
+                        cb.desc(root.get("createdAt")), // <--- Ensures newest added events are at the top
                         cb.asc(activeDateSort),
                         cb.desc(completedDateSort)
                 );
             } else {
                 query.orderBy(
                         cb.asc(eventPhase),
+                        cb.desc(root.get("createdAt")), // <--- Ensures newest added events are at the top
                         cb.asc(activeDateSort),
                         cb.desc(completedDateSort));
             }

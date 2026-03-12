@@ -29,7 +29,8 @@ public class Registration {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private com.eventhub.eventhub_backend.enums.RegistrationStatus status;
-
+    @Column(name = "team_name")
+    private String teamName;
     // ─── NEW TEAM MEMBERS FIELD ───
     @OneToMany(mappedBy = "registration", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
