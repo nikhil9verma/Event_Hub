@@ -1,8 +1,8 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const BASE_URL = 'http://localhost:5000/api'  // For development
-
+// const BASE_URL = 'http://localhost:5000/api'  // For development
+const BASE_URL=import.meta.env.BASE_URL || '/api'
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -87,9 +87,8 @@ export const adminApi = {
 
 // ─── Events API ────────────────────────────────────────────────────────────────
 export const eventsApi = {
- 
+  // ─── TEAM MANAGEMENT ───
   acceptInvite: (eventId: number) => api.post(`/events/${eventId}/team/accept`),
-  declineInvite: (eventId: number) => api.delete(`/events/${eventId}/team/decline`), // <-- ADD THIS BACK
   getMyTeam: (eventId: number) => api.get(`/events/${eventId}/team`),
   addTeamMembers: (eventId: number, emails: string[]) => api.post(`/events/${eventId}/team/add`, { emails }),
   
