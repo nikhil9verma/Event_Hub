@@ -415,7 +415,7 @@ export default function EventDetailPage() {
                 </div>
               ) : !canRegister ? (
                 <button disabled className="w-full py-3 bg-ink-100 text-ink-500 rounded-xl font-bold cursor-not-allowed">
-                  {isCompleted ? 'Event Completed' : isSuspended ? 'Event Suspended' : 'Registration Closed'}
+                  {isCompleted ? 'Event Completed' : isSuspended ? 'Event Suspended' : 'Registration Ended'}
                 </button>
               ) : (
                 <button 
@@ -452,7 +452,6 @@ export default function EventDetailPage() {
         onSubmitTeam={(data) => registerMutation.mutate(data)}
         isPending={registerMutation.isPending}
       />
-
       <AddTeammateModal 
         isOpen={isAddMemberOpen} 
         onClose={() => setIsAddMemberOpen(false)} 

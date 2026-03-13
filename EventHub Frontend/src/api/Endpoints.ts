@@ -91,7 +91,7 @@ export const eventsApi = {
   acceptInvite: (eventId: number) => api.post(`/events/${eventId}/team/accept`),
   getMyTeam: (eventId: number) => api.get(`/events/${eventId}/team`),
   addTeamMembers: (eventId: number, emails: string[]) => api.post(`/events/${eventId}/team/add`, { emails }),
-  
+  declineInvite: (eventId: number) => api.delete(`/events/${eventId}/team/decline`),
   // NOTE: declineInvite and cancelRegistration have been removed per project requirements.
 
   getEvents: (filters: Record<string, any>) =>
