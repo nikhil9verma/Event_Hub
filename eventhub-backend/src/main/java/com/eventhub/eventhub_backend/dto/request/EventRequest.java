@@ -48,7 +48,9 @@ public class EventRequest {
     private String contactEmail;
     private String prizes;
     private List<EventStageRequest> stages;
+    private Boolean requiresRegistration;
 
+    private String eventType; // Expected values: "SOLO", "TEAM", "CROWD"
     @Data
     public static class EventStageRequest {
         @NotBlank(message = "Stage title is required")

@@ -21,7 +21,5 @@ public class TeamRegistrationRequest {
         @Email(message = "Invalid email format")
         private String email;
 
-        // Note: 'name' has been removed because we fetch their
-        // real registered name directly from the database!
     }
 }

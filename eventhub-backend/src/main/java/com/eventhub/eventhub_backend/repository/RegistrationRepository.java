@@ -16,8 +16,12 @@ import java.util.Optional;
 @Repository
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
 
+    // ─── NEW: Fetch all registrations for an event (used for capacity counting) ───
+    List<Registration> findByEventId(Long eventId);
+
     @Query("SELECT r FROM Registration r JOIN FETCH r.user WHERE r.event.id = :eventId ORDER BY r.registeredAt DESC")
     List<Registration> findByEventIdOrderByRegisteredAtDesc(@Param("eventId") Long eventId);
+
     Optional<Registration> findByUserIdAndEventId(Long userId, Long eventId);
 
     @Query("SELECT COUNT(r) FROM Registration r WHERE r.event.id = :eventId AND r.status = :status")
@@ -56,11 +60,16 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
             """, nativeQuery = true)
     List<Object[]> findDailyRegistrationCounts(@Param("eventId") Long eventId);
 
-    Page<Registration> findByUserIdOrderByRegisteredAtDesc(Long userId, Pageable pageable);
+    List<Registration> findByEventIdAndTeamName(Long eventId, String teamName);
 
+    Page<Registration> findByUserIdOrderByRegisteredAtDesc(Long userId, Pageable pageable);
+    // Add this anywhere inside RegistrationRepository
+    boolean existsByEventIdAndTeamName(Long eventId, String teamName);
     @Modifying
     @Query("DELETE FROM Registration r WHERE r.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
+
     boolean existsByEventIdAndUserEmailIn(Long eventId, List<String> emails);
+
     boolean existsByEventIdAndUserId(Long eventId, Long userId);
 }

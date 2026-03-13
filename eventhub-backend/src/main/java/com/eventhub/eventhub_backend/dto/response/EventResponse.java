@@ -35,7 +35,7 @@ public class EventResponse {
 
     private Double averageRating;
     private long ratingCount;
-
+    private boolean requiresRegistration;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

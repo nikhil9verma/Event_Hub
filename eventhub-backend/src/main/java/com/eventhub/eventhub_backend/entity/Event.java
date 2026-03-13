@@ -64,7 +64,9 @@ public class Event {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = true)
     private User host;
-
+    @Column(name = "requires_registration")
+    @Builder.Default
+    private boolean requiresRegistration = true;
     // ─── NEW FLEXIBLE FIELDS ───
     @Column(name = "min_team_size")
     @Builder.Default

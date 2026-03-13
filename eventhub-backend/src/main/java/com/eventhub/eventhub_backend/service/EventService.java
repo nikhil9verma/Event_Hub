@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort; // NEW IMPORT
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -46,6 +46,28 @@ public class EventService {
     private final EmailService emailService;
     private final NotificationService notificationService;
     private final TeamMemberRepository teamMemberRepository;
+
+    // ─── NEW HELPER: TEAM-AWARE SLOT COUNTING ───
+    private long countOccupiedSlots(Long eventId) {
+        List<Registration> allRegs = registrationRepository.findByEventId(eventId);
+
+        Set<String> registeredTeams = new HashSet<>();
+        long soloRegistrations = 0;
+
+        for (Registration reg : allRegs) {
+            // Count registered and incomplete teams/users as taking up a spot
+            if (reg.getStatus() == RegistrationStatus.REGISTERED ||
+                    reg.getStatus() == RegistrationStatus.INCOMPLETE) {
+
+                if (reg.getTeamName() != null && !reg.getTeamName().isBlank()) {
+                    registeredTeams.add(reg.getTeamName());
+                } else {
+                    soloRegistrations++;
+                }
+            }
+        }
+        return registeredTeams.size() + soloRegistrations;
+    }
 
     @Transactional
     public EventResponse createEvent(Long hostId, EventRequest request) {
@@ -80,6 +102,7 @@ public class EventService {
                 .maxTeamSize(request.getMaxTeamSize() != null ? request.getMaxTeamSize() : 1)
                 .contactEmail(request.getContactEmail())
                 .prizes(request.getPrizes())
+                .requiresRegistration(request.getRequiresRegistration() == null || request.getRequiresRegistration())
                 .build();
 
         if (request.getStages() != null && !request.getStages().isEmpty()) {
@@ -150,6 +173,7 @@ public class EventService {
         event.setMaxTeamSize(request.getMaxTeamSize() != null ? request.getMaxTeamSize() : 1);
         event.setContactEmail(request.getContactEmail());
         event.setPrizes(request.getPrizes());
+        event.setRequiresRegistration(request.getRequiresRegistration() == null || request.getRequiresRegistration());
 
         if (request.getStages() != null) {
             event.getStages().clear();
@@ -195,7 +219,6 @@ public class EventService {
     public Page<EventResponse> getEvents(EventFilterRequest filter, @Nullable Long currentUserId) {
         Specification<Event> spec = buildSpecification(filter, currentUserId);
 
-        // ─── UPDATED: Added default DESC sorting by createdAt ───
         PageRequest pageable = PageRequest.of(
                 filter.getPage(),
                 filter.getSize(),
@@ -212,7 +235,6 @@ public class EventService {
     }
 
     public Page<EventResponse> getHostEvents(Long hostId, int page, int size) {
-        // ─── UPDATED: Added default DESC sorting by createdAt ───
         PageRequest pageable = PageRequest.of(
                 page,
                 size,
@@ -223,11 +245,17 @@ public class EventService {
                 .map(event -> toResponse(event, Optional.empty()));
     }
 
+    // ─── UPDATED TEAM REGISTRATION LOGIC ───
     @Transactional
     public RegistrationResponse registerForEvent(Long eventId, Long userId, TeamRegistrationRequest request) {
         Event event = getEventOrThrow(eventId);
         User user = userRepository.findByIdAndDeletedFalse(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Block registrations for crowd events
+        if (!event.isRequiresRegistration()) {
+            throw new BusinessException("This is a Crowd Event. No registration is required!");
+        }
 
         if (event.getStatus() == EventStatus.SUSPENDED || event.getStatus() == EventStatus.COMPLETED) {
             throw new BusinessException("Cannot register for this event");
@@ -238,16 +266,17 @@ public class EventService {
         }
 
         int totalTeamSize = 1;
-        List<TeamMember> teamMembers = new ArrayList<>();
+        List<User> teammateUsers = new ArrayList<>();
         List<String> emailsToCheck = new ArrayList<>();
         emailsToCheck.add(user.getEmail());
 
         if (request != null && request.getTeamMembers() != null && !request.getTeamMembers().isEmpty()) {
-
             if (request.getTeamName() == null || request.getTeamName().trim().isEmpty()) {
                 throw new BusinessException("Team name is required for team registrations.");
             }
-
+            if (registrationRepository.existsByEventIdAndTeamName(eventId, request.getTeamName())) {
+                throw new BusinessException("The team name '" + request.getTeamName() + "' is already taken for this event. Please choose a different name.");
+            }
             totalTeamSize += request.getTeamMembers().size();
 
             for (TeamRegistrationRequest.TeammateDto dto : request.getTeamMembers()) {
@@ -256,87 +285,143 @@ public class EventService {
                 }
 
                 User teammateUser = userRepository.findByEmailAndDeletedFalse(dto.getEmail())
-                        .orElseThrow(() -> new BusinessException("Registration failed: User with email '" + dto.getEmail() + "' is not registered on the platform. All teammates must create an account first."));
+                        .orElseThrow(() -> new BusinessException("Registration failed: User with email '" + dto.getEmail() + "' is not registered on EventHub."));
 
                 emailsToCheck.add(dto.getEmail());
-                teamMembers.add(TeamMember.builder()
-                        .name(teammateUser.getName()) // Pulled from DB
-                        .email(teammateUser.getEmail())
-                        .build());
+                teammateUsers.add(teammateUser);
             }
         }
 
         int minTeam = event.getMinTeamSize() != null ? event.getMinTeamSize() : 1;
         int maxTeam = event.getMaxTeamSize() != null ? event.getMaxTeamSize() : 1;
 
-        if (totalTeamSize < minTeam || totalTeamSize > maxTeam) {
-            throw new BusinessException("Team size must be between " + minTeam + " and " + maxTeam + " (including the leader).");
+        if (totalTeamSize > maxTeam) {
+            throw new BusinessException("Team size cannot exceed " + maxTeam + " members.");
         }
 
         Optional<Registration> existing = registrationRepository.findByUserIdAndEventId(userId, eventId);
         if (existing.isPresent()) {
             RegistrationStatus existingStatus = existing.get().getStatus();
-            if (existingStatus == RegistrationStatus.REGISTERED || existingStatus == RegistrationStatus.WAITLIST) {
+            if (existingStatus == RegistrationStatus.REGISTERED || existingStatus == RegistrationStatus.WAITLIST || existingStatus == RegistrationStatus.INCOMPLETE) {
                 throw new BusinessException("You are already registered or on waitlist for this event");
             }
             registrationRepository.delete(existing.get());
             registrationRepository.flush();
         }
 
-        boolean leaderConflict = registrationRepository.existsByEventIdAndUserEmailIn(eventId, emailsToCheck);
-        boolean teammateConflict = teamMemberRepository.existsByRegistrationEventIdAndEmailIn(eventId, emailsToCheck);
-
-        if (leaderConflict || teammateConflict) {
-            throw new BusinessException("Registration failed: One or more emails provided are already registered for this event.");
+        for (User teammate : teammateUsers) {
+            Optional<Registration> tmExisting = registrationRepository.findByUserIdAndEventId(teammate.getId(), eventId);
+            if (tmExisting.isPresent()) {
+                throw new BusinessException("Registration failed: " + teammate.getName() + " (" + teammate.getEmail() + ") is already registered or invited to this event.");
+            }
         }
 
-        RegistrationStatus status = determineStatus(event);
-        Registration registration = Registration.builder()
+        // ─── 1. CREATE LEADER REGISTRATION ───
+        RegistrationStatus leaderStatus = (minTeam > 1) ? RegistrationStatus.INCOMPLETE : determineStatus(event);
+        Registration leaderRegistration = Registration.builder()
                 .user(user)
                 .event(event)
-                .status(status)
+                .status(leaderStatus)
                 .teamName(request != null ? request.getTeamName() : null)
+                .registeredAt(LocalDateTime.now())
                 .build();
 
-        for (TeamMember tm : teamMembers) {
-            tm.setRegistration(registration);
+        List<TeamMember> teamMemberLinks = new ArrayList<>();
+
+        // ─── 2. CREATE PENDING INVITATIONS FOR TEAMMATES ───
+        for (User teammate : teammateUsers) {
+            Registration teammateInvite = Registration.builder()
+                    .user(teammate)
+                    .event(event)
+                    .status(RegistrationStatus.PENDING_INVITATION)
+                    .teamName(request != null ? request.getTeamName() : null)
+                    .registeredAt(LocalDateTime.now())
+                    .build();
+            registrationRepository.save(teammateInvite);
+
+            TeamMember tm = TeamMember.builder()
+                    .name(teammate.getName())
+                    .email(teammate.getEmail())
+                    .registration(leaderRegistration)
+                    .build();
+            teamMemberLinks.add(tm);
+
+            if (request != null && request.getTeamName() != null) {
+                notificationService.createNotification(teammate.getId(), "New Team Invite! 📧",
+                        user.getName() + " invited you to join '" + request.getTeamName() + "' for the event: " + event.getTitle());
+            }
         }
-        registration.setTeamMembers(teamMembers);
 
-        Registration saved = registrationRepository.save(registration);
+        leaderRegistration.setTeamMembers(teamMemberLinks);
+        Registration savedLeader = registrationRepository.save(leaderRegistration);
 
-        handlePostRegistration(user, event, status, teamMembers);
+        // Check if team is immediately complete (e.g., solo event)
+        checkAndUpgradeTeamStatus(event, leaderRegistration.getTeamName());
+
+        handlePostRegistration(user, event, leaderStatus, teamMemberLinks);
         updateEventStatus(event);
         eventRepository.save(event);
 
-        return toRegResponse(saved);
+        return toRegResponse(savedLeader);
     }
 
     @Transactional
-    public void cancelRegistration(Long eventId, Long userId) {
-        Event event = getEventOrThrow(eventId);
+    public void declineTeamInvitation(Long eventId, Long userId) {
+        Registration invite = registrationRepository.findByUserIdAndEventId(userId, eventId)
+                .orElseThrow(() -> new BusinessException("No invitation found."));
 
-        if (LocalDateTime.now().isAfter(event.getEventDate())) {
-            throw new BusinessException("Cancellations are not allowed after the event has started.");
+        registrationRepository.delete(invite);
+    }
+
+    @Transactional
+    public void acceptTeamInvitation(Long eventId, Long userId) {
+        Registration invite = registrationRepository.findByUserIdAndEventId(userId, eventId)
+                .orElseThrow(() -> new BusinessException("No invitation found."));
+
+        if (invite.getStatus() != RegistrationStatus.PENDING_INVITATION) {
+            throw new BusinessException("This invitation is no longer valid.");
         }
 
-        Registration registration = registrationRepository.findByUserIdAndEventId(userId, eventId)
-                .orElseThrow(() -> new BusinessException("Active registration not found for this event."));
+        Event event = getEventOrThrow(eventId);
 
-        registrationRepository.delete(registration);
-        registrationRepository.flush();
+        invite.setStatus(event.getMinTeamSize() > 1 ? RegistrationStatus.INCOMPLETE : determineStatus(event));
+        registrationRepository.save(invite);
 
-        promoteFromWaitlist(event);
+        checkAndUpgradeTeamStatus(event, invite.getTeamName());
         updateEventStatus(event);
-        eventRepository.save(event);
     }
+
+    private void checkAndUpgradeTeamStatus(Event event, String teamName) {
+        if (teamName == null || event.getMinTeamSize() <= 1) return;
+
+        List<Registration> teamMembers = registrationRepository.findByEventIdAndTeamName(event.getId(), teamName);
+
+        long acceptedCount = teamMembers.stream()
+                .filter(r -> r.getStatus() == RegistrationStatus.REGISTERED
+                        || r.getStatus() == RegistrationStatus.WAITLIST
+                        || r.getStatus() == RegistrationStatus.INCOMPLETE)
+                .count();
+
+        if (acceptedCount >= event.getMinTeamSize()) {
+            RegistrationStatus newStatus = determineStatus(event);
+            for (Registration r : teamMembers) {
+                if (r.getStatus() == RegistrationStatus.INCOMPLETE) {
+                    r.setStatus(newStatus);
+                    registrationRepository.save(r);
+
+                    notificationService.createNotification(r.getUser().getId(),
+                            "Team Registration Confirmed! 🎉",
+                            "Your team '" + teamName + "' has enough members and is now officially " + newStatus + " for " + event.getTitle());
+                }
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public Page<EventResponse> getMyRegistrations(Long userId, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
 
-        // Find all registrations for this user
         return registrationRepository.findByUserIdOrderByRegisteredAtDesc(userId, pageable)
-                // Convert the Registration's Event into an EventResponse
                 .map(registration -> toResponse(registration.getEvent(), Optional.of(userId)));
     }
 
@@ -373,8 +458,8 @@ public class EventService {
         Event event = getEventOrThrow(eventId);
         verifyHostOwnership(event, hostId);
 
-        long totalRegistrations = registrationRepository.countByEventIdAndStatus(eventId,
-                RegistrationStatus.REGISTERED);
+        // Uses slot count now so Teams equal 1 registration slot
+        long totalRegistrations = countOccupiedSlots(eventId);
         long waitlistCount = registrationRepository.countByEventIdAndStatus(eventId, RegistrationStatus.WAITLIST);
         double fillPercentage = event.getMaxParticipants() > 0
                 ? (totalRegistrations * 100.0) / event.getMaxParticipants()
@@ -423,14 +508,13 @@ public class EventService {
     }
 
     private RegistrationStatus determineStatus(Event event) {
-        long registered = registrationRepository.countByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
-        return registered < event.getMaxParticipants() ? RegistrationStatus.REGISTERED : RegistrationStatus.WAITLIST;
+        long occupiedSlots = countOccupiedSlots(event.getId());
+        return occupiedSlots < event.getMaxParticipants() ? RegistrationStatus.REGISTERED : RegistrationStatus.WAITLIST;
     }
 
     private void handlePostRegistration(User user, Event event, RegistrationStatus status, List<TeamMember> teamMembers) {
         boolean isWaitlist = (status == RegistrationStatus.WAITLIST);
 
-        // 1. Send Emails asynchronously
         if (teamMembers != null && !teamMembers.isEmpty()) {
             emailService.sendTeamRegistrationConfirmation(user, teamMembers, event, isWaitlist);
         } else {
@@ -441,10 +525,9 @@ public class EventService {
             }
         }
 
-        // 2. Send In-App Notifications (to the leader)
         if (!isWaitlist) {
-            notificationService.createNotification(user.getId(), "Registration Confirmed ✅",
-                    "You're registered for: " + event.getTitle());
+            notificationService.createNotification(user.getId(), "Registration Process Started",
+                    "You initiated registration for: " + event.getTitle());
         } else {
             notificationService.createNotification(user.getId(), "Added to Waitlist ⏳",
                     "You're on the waitlist for: " + event.getTitle());
@@ -454,8 +537,8 @@ public class EventService {
     private void updateEventStatus(Event event) {
         if (event.getStatus() == EventStatus.SUSPENDED || event.getStatus() == EventStatus.COMPLETED)
             return;
-        long registered = registrationRepository.countByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
-        if (registered >= event.getMaxParticipants()) {
+        long occupiedSlots = countOccupiedSlots(event.getId());
+        if (occupiedSlots >= event.getMaxParticipants()) {
             event.setStatus(EventStatus.FULL);
         } else {
             event.setStatus(EventStatus.ACTIVE);
@@ -467,29 +550,63 @@ public class EventService {
             List<Predicate> predicates = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now();
 
+            // Always hide suspended events
             predicates.add(cb.notEqual(root.get("status"), EventStatus.SUSPENDED));
 
+            // ─── SEARCH FILTER ───
             if (filter.getSearch() != null && !filter.getSearch().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("title")),
                         "%" + filter.getSearch().toLowerCase() + "%"));
             }
 
+            // ─── CATEGORY FILTER ───
             if (filter.getCategory() != null && !filter.getCategory().isBlank()) {
                 predicates.add(cb.equal(root.get("category"), filter.getCategory()));
             }
 
-            if (Boolean.TRUE.equals(filter.getAvailable())) {
-                predicates.add(cb.equal(root.get("status"), EventStatus.ACTIVE));
+            // ─── EVENT TYPE FILTER (Fail-Safe for old DB records) ───
+            if (filter.getEventType() != null && !filter.getEventType().isBlank()) {
+                String type = filter.getEventType().toUpperCase();
+
+                // Treat null requiresRegistration as TRUE (standard events)
+                Predicate isRegRequired = cb.or(
+                        cb.isTrue(root.get("requiresRegistration")),
+                        cb.isNull(root.get("requiresRegistration"))
+                );
+
+                if (type.equals("SOLO")) {
+                    // maxTeamSize is 1 OR maxTeamSize is NULL (fallback for old solo events)
+                    Predicate isSolo = cb.or(cb.equal(root.get("maxTeamSize"), 1), cb.isNull(root.get("maxTeamSize")));
+                    predicates.add(cb.and(isSolo, isRegRequired));
+                } else if (type.equals("TEAM")) {
+                    predicates.add(cb.and(cb.greaterThan(root.get("maxTeamSize"), 1), isRegRequired));
+                } else if (type.equals("CROWD")) {
+                    // strictly false
+                    predicates.add(cb.isFalse(root.get("requiresRegistration")));
+                }
             }
 
+            // ─── AVAILABILITY FILTER (Open for Registration) ───
+            if (Boolean.TRUE.equals(filter.getAvailable())) {
+                // 1. Event must be ACTIVE (not FULL, SUSPENDED, or COMPLETED)
+                predicates.add(cb.equal(root.get("status"), EventStatus.ACTIVE));
+
+                // 2. The deadline must be in the future OR it must be a Crowd Event (no registration needed)
+                Predicate isCrowdEvent = cb.isFalse(root.get("requiresRegistration"));
+                Predicate deadlineInFuture = cb.greaterThan(root.<LocalDateTime>get("registrationDeadline"), now);
+
+                predicates.add(cb.or(isCrowdEvent, deadlineInFuture));
+            }
+
+            // ─── DATE FILTERS ───
             if (filter.getDateFrom() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.<LocalDateTime>get("eventDate"), filter.getDateFrom()));
             }
-
             if (filter.getDateTo() != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.<LocalDateTime>get("eventDate"), filter.getDateTo()));
             }
 
+            // ─── SORTING LOGIC ───
             Expression<Integer> eventPhase = cb.<Integer>selectCase()
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), 2)
                     .when(cb.lessThan(root.<LocalDateTime>get("registrationDeadline"), now), 1)
@@ -503,7 +620,6 @@ public class EventService {
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), root.<LocalDateTime>get("eventDate"))
                     .otherwise(cb.nullLiteral(LocalDateTime.class));
 
-            // ─── UPDATED: Appended cb.desc(root.get("createdAt")) to tie-break and ensure latest events come first ───
             if (currentUserId != null) {
                 Join<Event, Registration> regJoin = root.join("registrations", JoinType.LEFT);
                 regJoin.on(
@@ -519,14 +635,14 @@ public class EventService {
                 query.orderBy(
                         cb.asc(eventPhase),
                         cb.desc(isRegistered),
-                        cb.desc(root.get("createdAt")), // <--- Ensures newest added events are at the top
+                        cb.desc(root.get("createdAt")),
                         cb.asc(activeDateSort),
                         cb.desc(completedDateSort)
                 );
             } else {
                 query.orderBy(
                         cb.asc(eventPhase),
-                        cb.desc(root.get("createdAt")), // <--- Ensures newest added events are at the top
+                        cb.desc(root.get("createdAt")),
                         cb.asc(activeDateSort),
                         cb.desc(completedDateSort));
             }
@@ -549,6 +665,7 @@ public class EventService {
     }
 
     public EventResponse toResponse(Event event, Optional<Long> currentUserId) {
+        long occupiedSlots = countOccupiedSlots(event.getId());
         Double avgRating = ratingRepository.findAverageRatingByEventId(event.getId());
         long ratingCount = ratingRepository.countByEventId(event.getId());
 
@@ -586,9 +703,9 @@ public class EventService {
                 .hostId(event.getHost() != null ? event.getHost().getId() : null)
                 .hostName(event.getHost() != null ? event.getHost().getName() : "Deleted User")
                 .hostImageUrl(event.getHost() != null ? event.getHost().getProfileImageUrl() : null)
-                .registrationCount(event.getRegistrationCount())
+                .registrationCount((int) occupiedSlots)
                 .waitlistCount(event.getWaitlistCount())
-                .availableSeats(event.getAvailableSeats())
+                .availableSeats(Math.max(0, event.getMaxParticipants() - (int) occupiedSlots))
                 .trending(event.isTrending())
                 .averageRating(avgRating)
                 .ratingCount(ratingCount)
@@ -599,6 +716,7 @@ public class EventService {
                 .maxTeamSize(event.getMaxTeamSize())
                 .contactEmail(event.getContactEmail())
                 .prizes(event.getPrizes())
+                .requiresRegistration(event.isRequiresRegistration())
                 .stages(stageResponses)
                 .build();
     }
@@ -626,5 +744,73 @@ public class EventService {
             Long id, Long userId, String userName,
             Long eventId, String eventTitle,
             RegistrationStatus status, LocalDateTime registeredAt) {
+    }
+
+    // ─── TEAM MANAGEMENT METHODS ───
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMyTeam(Long eventId, Long userId) {
+        // FIXED: Allow users with a PENDING_INVITATION to fetch the team details
+        Registration myReg = registrationRepository.findByUserIdAndEventId(userId, eventId)
+                .orElseThrow(() -> new BusinessException("No registration or invitation found for this event."));
+
+        if (myReg.getTeamName() == null || myReg.getTeamName().isBlank()) {
+            throw new BusinessException("Not part of a team");
+        }
+
+        List<Registration> teamRegs = registrationRepository.findByEventIdAndTeamName(eventId, myReg.getTeamName());
+
+        List<Map<String, String>> members = teamRegs.stream()
+                .sorted((r1, r2) -> {
+                    int s1 = r1.getStatus() == RegistrationStatus.PENDING_INVITATION ? 1 : 0;
+                    int s2 = r2.getStatus() == RegistrationStatus.PENDING_INVITATION ? 1 : 0;
+                    return Integer.compare(s1, s2);
+                })
+                .map(r -> {
+                    Map<String, String> map = new HashMap<>();
+                    map.put("name", r.getUser().getName());
+                    map.put("email", r.getUser().getEmail());
+                    map.put("status", r.getStatus().name());
+                    return map;
+                }).toList();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("teamName", myReg.getTeamName());
+        response.put("members", members);
+        return response;
+    }
+
+    @Transactional
+    public void addTeamMembers(Long eventId, Long userId, List<String> newEmails) {
+        Event event = getEventOrThrow(eventId);
+        Registration myReg = registrationRepository.findByUserIdAndEventId(userId, eventId)
+                .orElseThrow(() -> new BusinessException("Not registered"));
+
+        List<Registration> currentTeam = registrationRepository.findByEventIdAndTeamName(eventId, myReg.getTeamName());
+
+        if (currentTeam.size() + newEmails.size() > event.getMaxTeamSize()) {
+            throw new BusinessException("Adding these members exceeds the maximum team size limit of " + event.getMaxTeamSize());
+        }
+
+        for (String email : newEmails) {
+            User teammate = userRepository.findByEmailAndDeletedFalse(email)
+                    .orElseThrow(() -> new BusinessException("User " + email + " is not registered on EventHub"));
+
+            if (registrationRepository.findByUserIdAndEventId(teammate.getId(), eventId).isPresent()) {
+                throw new BusinessException(email + " is already registered or invited to this event.");
+            }
+
+            Registration invite = Registration.builder()
+                    .user(teammate)
+                    .event(event)
+                    .status(RegistrationStatus.PENDING_INVITATION)
+                    .teamName(myReg.getTeamName())
+                    .registeredAt(LocalDateTime.now())
+                    .build();
+            registrationRepository.save(invite);
+
+            notificationService.createNotification(teammate.getId(), "New Team Invite! 📧",
+                    myReg.getUser().getName() + " added you to '" + myReg.getTeamName() + "' for the event: " + event.getTitle());
+        }
     }
 }

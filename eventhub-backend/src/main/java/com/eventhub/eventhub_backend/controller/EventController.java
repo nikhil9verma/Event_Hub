@@ -3,7 +3,7 @@ package com.eventhub.eventhub_backend.controller;
 import com.eventhub.eventhub_backend.dto.request.EventFilterRequest;
 import com.eventhub.eventhub_backend.dto.request.EventRequest;
 import com.eventhub.eventhub_backend.dto.request.FeedbackRequests;
-import com.eventhub.eventhub_backend.dto.request.TeamRegistrationRequest; // NEW IMPORT
+import com.eventhub.eventhub_backend.dto.request.TeamRegistrationRequest;
 import com.eventhub.eventhub_backend.dto.response.*;
 import com.eventhub.eventhub_backend.service.EventService;
 import com.eventhub.eventhub_backend.service.FeedbackService;
@@ -75,13 +75,16 @@ public class EventController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
     public ResponseEntity<?> deleteEvent(@PathVariable Long id, Principal principal) {
         eventService.deleteEvent(id, principal.getName());
         return ResponseEntity.ok().body(Map.of("message", "Event deleted successfully"));
     }
 
-    // ─── UPDATED: NOW ACCEPTS TEAM DATA ───
+    // ─── REGISTRATION & TEAM MANAGEMENT (NO CANCELLATIONS) ───
+
     @PostMapping("/{id}/register")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<EventService.RegistrationResponse>> register(
             @PathVariable Long id,
             @RequestBody(required = false) @Valid TeamRegistrationRequest request) {
@@ -90,11 +93,37 @@ public class EventController {
                 eventService.registerForEvent(id, securityUtils.getCurrentUserId(), request)));
     }
 
-    @DeleteMapping("/{id}/register")
-    public ResponseEntity<ApiResponse<Void>> cancelRegistration(@PathVariable Long id) {
-        eventService.cancelRegistration(id, securityUtils.getCurrentUserId());
-        return ResponseEntity.ok(ApiResponse.success("Registration cancelled", null));
+    @PostMapping("/{id}/team/accept")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> acceptTeamInvite(@PathVariable Long id) {
+        eventService.acceptTeamInvitation(id, securityUtils.getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success("Team invitation accepted", null));
     }
+
+    @GetMapping("/{id}/team")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyTeam(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                eventService.getMyTeam(id, securityUtils.getCurrentUserId())));
+    }
+
+    @PostMapping("/{id}/team/add")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> addTeamMembers(
+            @PathVariable Long id,
+            @RequestBody Map<String, List<String>> request) {
+        eventService.addTeamMembers(id, securityUtils.getCurrentUserId(), request.get("emails"));
+        return ResponseEntity.ok(ApiResponse.success("Teammates invited successfully", null));
+    }
+
+    @DeleteMapping("/{id}/team/decline")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> declineTeamInvite(@PathVariable Long id) {
+        eventService.declineTeamInvitation(id, securityUtils.getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success("Team invitation declined", null));
+    }
+
+    // ─── ANALYTICS & FEEDBACK ───
 
     @GetMapping("/{id}/analytics")
     @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
@@ -113,6 +142,7 @@ public class EventController {
     }
 
     @PostMapping("/{id}/comments")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
             @PathVariable Long id, @Valid @RequestBody FeedbackRequests.CommentRequest request) {
         return ResponseEntity.status(201).body(ApiResponse.success("Comment added",
@@ -137,6 +167,7 @@ public class EventController {
     }
 
     @PostMapping("/{id}/rating")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RatingResponse>> rateEvent(
             @PathVariable Long id, @Valid @RequestBody FeedbackRequests.RatingRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Rating submitted",
