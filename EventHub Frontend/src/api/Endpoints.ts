@@ -89,11 +89,11 @@ export const adminApi = {
 export const eventsApi = {
   // ─── TEAM MANAGEMENT ───
   acceptInvite: (eventId: number) => api.post(`/events/${eventId}/team/accept`),
-  // NOTE: declineInvite and cancelRegistration have been removed per project requirements.
-declineInvite: (eventId: number) => api.delete(`/events/${eventId}/team/decline`),
-  
+  declineInvite: (eventId: number) => api.delete(`/events/${eventId}/team/decline`),
   getMyTeam: (eventId: number) => api.get(`/events/${eventId}/team`),
   addTeamMembers: (eventId: number, emails: string[]) => api.post(`/events/${eventId}/team/add`, { emails }),
+  
+  // ─── GENERAL EVENT MANAGEMENT ───
   getEvents: (filters: Record<string, any>) =>
     api.get('/events', { params: filters }),
 
