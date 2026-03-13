@@ -8,6 +8,8 @@ export const getImageUrl = (url?: string) => {
 }
 
 export default function EventCard({ event, featured }: { event: Event; featured?: boolean }) {
+  if (!event) return null; // Safety guard
+
   const isCompleted = event.status === 'COMPLETED'
   const isSuspended = event.status === 'SUSPENDED'
   const isTeamEvent = event.maxTeamSize > 1
@@ -21,7 +23,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
   const fillPct = Math.min(100, (event.registrationCount / event.maxParticipants) * 100)
   const isWaitlist = event.registrationCount >= event.maxParticipants
 
-  // ─── NEW: Check User's Registration Status ───
+  // Check User's Registration Status
   const isUserRegistered = event.currentUserRegistrationStatus === 'REGISTERED'
   const isUserWaitlisted = event.currentUserRegistrationStatus === 'WAITLIST'
 
@@ -35,7 +37,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
           alt={event.title} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out opacity-90 group-hover:opacity-100" 
         />
-        <div className="absolute inset-0 bg-linear-to-t from-ink-900/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-transparent to-transparent" />
         
         <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded text-[10px] font-bold uppercase tracking-wider text-ink-900 shadow-sm">
           {event.category}
@@ -44,6 +46,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
           {format(new Date(event.eventDate), 'MMM d')}
         </div>
 
+        {/* Featured Badge (Uncomment if needed) */}
         {/* {featured && (
           <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-yellow-500 text-white rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -112,15 +115,15 @@ export default function EventCard({ event, featured }: { event: Event; featured?
           </div>
         </div>
 
-        {/* ─── DYNAMIC REGISTER BUTTON ─── */}
+        {/* ─── DYNAMIC STATUS BUTTON (NO DIRECT REGISTRATION) ─── */}
         {isUserRegistered ? (
-          <div className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default">
+          <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
             ✅ You are Registered
-          </div>
+          </Link>
         ) : isUserWaitlisted ? (
-          <div className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-amber-50 text-amber-600 border border-amber-200 cursor-default">
+          <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors">
             ⏳ On Waitlist
-          </div>
+          </Link>
         ) : (
           <Link 
             to={`/events/${event.id}`} 
@@ -132,7 +135,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
                   : 'bg-yellow-400 text-ink-900 hover:bg-yellow-500 hover:-translate-y-0.5'
             }`}
           >
-            {isCompleted || isSuspended ? 'View Details' : isWaitlist ? 'Join Waitlist' : 'Register Now'}
+            {isCompleted || isSuspended ? 'View Details' : isWaitlist ? 'Join Waitlist' : 'View & Register'}
           </Link>
         )}
         

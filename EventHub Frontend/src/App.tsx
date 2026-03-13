@@ -76,11 +76,15 @@ export default function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="admin" element={
+          {/* ─── PROPER ADMIN ROUTING ─── */}
+          <Route path="admin/dashboard" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
               <AdminDashboardPage />
             </ProtectedRoute>
           } />
+          
+          {/* Automatically redirect /admin to the dashboard */}
+          <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />
           
         </Route>
       </Routes>

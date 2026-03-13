@@ -1,8 +1,8 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-// const BASE_URL = 'http://localhost:5000/api'  // For development
+// const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const BASE_URL = 'http://localhost:5000/api'  // For development
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -80,9 +80,11 @@ export const authApi = {
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 export const adminApi = {
-  getPendingHostRequests: () => api.get('/admin/hosts/pending'),
-  approveHost: (id: number) => api.post(`/admin/hosts/${id}/approve`),
-  rejectHost: (id: number) => api.post(`/admin/hosts/${id}/reject`),
+  getPendingHostRequests: () => api.get('/admin/host-requests'),
+  approveHost: (id: number) => api.post(`/admin/host-requests/${id}/approve`),
+  rejectHost: (id: number) => api.post(`/admin/host-requests/${id}/reject`),
+  getHostsAndAdmins: () => api.get('/admin/hosts'),
+  demoteToStudent: (id: number) => api.post(`/admin/users/${id}/demote`),
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────

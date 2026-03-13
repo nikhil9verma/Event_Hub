@@ -211,7 +211,7 @@ export default function EventDetailPage() {
 
             <div className="card p-6">
               <h2 className="section-title mb-4">Attendee Discussion</h2>
-              {isAuthenticated && isRegistered && !isSuspended ? (
+              {isAuthenticated ? (
                 <div className="mb-6 space-y-3">
                   <textarea
                     value={comment}
@@ -229,9 +229,9 @@ export default function EventDetailPage() {
                   </button>
                 </div>
               ) : (
-                !isRegistered && !isSuspended && (
+                 (
                   <p className="text-ink-600/50 text-sm italic mb-6">
-                    Only registered attendees can participate in the discussion.
+                    You need to create an account for this.
                   </p>
                 )
               )}
