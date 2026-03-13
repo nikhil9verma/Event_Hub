@@ -44,4 +44,13 @@ public class AdminController {
         authService.hardDeleteAccountByEmail(email);
         return ResponseEntity.ok(ApiResponse.success("User permanently deleted", null));
     }
+    @GetMapping("/hosts")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getHostsAndAdmins() {
+        return ResponseEntity.ok(ApiResponse.success(authService.getHostsAndAdmins()));
+    }
+
+    @PostMapping("/users/{id}/demote")
+    public ResponseEntity<ApiResponse<UserResponse>> demoteToStudent(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("User demoted to Student", authService.demoteToStudent(id)));
+    }
 }

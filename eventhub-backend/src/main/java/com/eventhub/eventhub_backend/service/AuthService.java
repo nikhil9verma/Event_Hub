@@ -253,6 +253,24 @@ public class AuthService {
         return buildAuthResponse(savedUser, newToken);
     }
 
+    // Add to AuthService.java
+    public List<UserResponse> getHostsAndAdmins() {
+        return userRepository.findByRoleInAndDeletedFalse(List.of(Role.HOST, Role.SUPER_ADMIN))
+                .stream().map(this::toUserResponse).toList();
+    }
+
+    @Transactional
+    public UserResponse demoteToStudent(Long userId) {
+        User user = findActiveUser(userId);
+
+        // Prevent Super Admins from accidentally demoting themselves!
+        if (user.getRole() == Role.SUPER_ADMIN) {
+            throw new BusinessException("Cannot demote a Super Admin. Please change roles directly in the database to prevent locking yourself out.");
+        }
+
+        user.setRole(Role.STUDENT);
+        return toUserResponse(userRepository.save(user));
+    }
     @Transactional
     public String refreshToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");

@@ -112,7 +112,6 @@ public class FeedbackService {
         }
     }
 
-    // 🟢 FIX: Added this new method to allow comments on any event that isn't suspended
     private Event getValidEventForComment(Long eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
