@@ -297,12 +297,12 @@ export default function EventDetailPage() {
                 <Link to="/login" className="w-full btn-gold py-3 rounded-xl text-center block mb-3">Sign in to Register</Link>
               )}
 
-              {isCompleted && isAuthenticated && isRegistered && (
+              {/* {isCompleted && isAuthenticated && isRegistered && (
                 <div className="border-t border-ink-900/8 pt-3 mt-3">
                   <p className="text-xs text-ink-600/50 mb-2">Rate your experience:</p>
                   <StarRating value={rating} onChange={(v) => { setRating(v); ratingMutation.mutate(v); }} />
                 </div>
-              )}
+              )} */}
 
               {event.contactEmail && (
                 <div className="mt-4 pt-4 border-t border-ink-900/5 text-center">

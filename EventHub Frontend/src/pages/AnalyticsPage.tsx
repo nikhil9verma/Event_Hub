@@ -104,13 +104,13 @@ export default function AnalyticsPage() {
           sub="Attendees waiting for a spot"
           color={analytics.waitlistCount > 0 ? 'text-amber-600' : 'text-ink-400'}
         />
-        <StatCard
+        {/* <StatCard
           icon="⭐"
           label="Avg. Rating"
           value={analytics.averageRating ? `${analytics.averageRating.toFixed(1)}` : '—'}
           sub={analytics.ratingCount > 0 ? `Based on ${analytics.ratingCount} reviews` : 'No reviews yet'}
           color="text-gold-dark"
-        />
+        /> */}
       </div>
 
       {/* ─── CHARTS ─── */}
