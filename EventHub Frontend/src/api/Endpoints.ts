@@ -1,15 +1,14 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-// const BASE_URL = 'http://localhost:5000/api'  // For development
+const BASE_URL = 'http://localhost:5000/api'  // For development
 
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
-// ─── 1. FIXED: Request Interceptor (Attaches your JWT token!) ───
+// ─── Request Interceptor (Attaches JWT token) ───
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().token
   if (token) {
@@ -18,7 +17,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config
 })
 
-// ─── 2. FIXED: Response Interceptor (Catches BOTH 401 and 403 errors!) ───
+// ─── Response Interceptor (Handles Auth Errors) ───
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -30,11 +29,10 @@ api.interceptors.response.use(
   }
 )
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// ─── Auth API ──────────────────────────────────────────────────────────────────
 export const authApi = {
   refreshToken: () => api.post('/auth/refresh'),
   
-  // ─── 3. FIXED: Adjusted signatures to match exactly what ProfilePage.tsx sends ───
   requestEmailChange: (newEmail: string) =>
     api.post('/auth/profile/email/request', { newEmail }),
 
@@ -56,7 +54,7 @@ export const authApi = {
   verifyRegistration: (email: string, otp: string) =>
     api.post(`/auth/verify-registration?email=${email}&otp=${otp}`),
   
-  getProfile: () =>  // Renamed from getMe to getProfile to match ProfilePage.tsx
+  getProfile: () => 
     api.get('/auth/profile'),
   
   updateProfile: (data: { name: string; course?: string; batch?: string }) =>
@@ -78,7 +76,7 @@ export const authApi = {
   deleteAccount: () => api.delete('/auth/account'),
 }
 
-// ─── Admin ────────────────────────────────────────────────────────────────────
+// ─── Admin API ─────────────────────────────────────────────────────────────────
 export const adminApi = {
   getPendingHostRequests: () => api.get('/admin/host-requests'),
   approveHost: (id: number) => api.post(`/admin/host-requests/${id}/approve`),
@@ -87,8 +85,16 @@ export const adminApi = {
   demoteToStudent: (id: number) => api.post(`/admin/users/${id}/demote`),
 }
 
-// ─── Events ───────────────────────────────────────────────────────────────────
+// ─── Events API ────────────────────────────────────────────────────────────────
 export const eventsApi = {
+ 
+  acceptInvite: (eventId: number) => api.post(`/events/${eventId}/team/accept`),
+  declineInvite: (eventId: number) => api.delete(`/events/${eventId}/team/decline`), // <-- ADD THIS BACK
+  getMyTeam: (eventId: number) => api.get(`/events/${eventId}/team`),
+  addTeamMembers: (eventId: number, emails: string[]) => api.post(`/events/${eventId}/team/add`, { emails }),
+  
+  // NOTE: declineInvite and cancelRegistration have been removed per project requirements.
+
   getEvents: (filters: Record<string, any>) =>
     api.get('/events', { params: filters }),
 
@@ -128,9 +134,6 @@ export const eventsApi = {
 
   register: (id: number, data?: any) =>
     api.post(`/events/${id}/register`, data),
-
-  cancelRegistration: (id: number) =>
-    api.delete(`/events/${id}/register`),
 
   getMyRegistrations: (page: number = 0) =>
     api.get('/registrations/my', { params: { page, size: 10 } }),

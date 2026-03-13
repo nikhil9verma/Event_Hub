@@ -1,6 +1,6 @@
 export type Role = 'STUDENT' | 'HOST' | 'SUPER_ADMIN'
-export type EventStatus = 'ACTIVE' | 'FULL' | 'SUSPENDED' | 'COMPLETED'
-export type RegistrationStatus = 'REGISTERED' | 'WAITLIST' | 'CANCELLED'
+export type EventStatus = 'ACTIVE' | 'FULL' | 'SUSPENDED' | 'COMPLETED' 
+export type RegistrationStatus = 'REGISTERED' | 'WAITLIST' | 'CANCELLED' | 'PENDING_INVITATION'| 'INCOMPLETE'
 export type HostRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface User {
@@ -70,6 +70,7 @@ export interface Event {
   ratingCount: number
   createdAt: string
   updatedAt: string
+  requiresRegistration: boolean;
   currentUserRegistrationStatus?: RegistrationStatus
   
   // ─── NEW: Flexible Event & Team Fields ───
@@ -165,4 +166,5 @@ export interface EventFilters {
   dateTo?: string
   page?: number
   size?: number
+  eventType?: 'ALL' | 'SOLO' | 'TEAM' | 'CROWD';
 }

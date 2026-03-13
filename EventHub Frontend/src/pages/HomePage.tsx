@@ -19,19 +19,16 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
   const [quoteIdx, setQuoteIdx] = useState(0)
   const { user } = useAuthStore()
 
-  // New state for dropdown and recommendations
   const [recommendations, setRecommendations] = useState<Event[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Rotate quotes
   useEffect(() => {
     const interval = setInterval(() => setQuoteIdx(i => (i + 1) % HERO_QUOTES.length), 4000)
     return () => clearInterval(interval)
   }, [])
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -42,7 +39,6 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Debounced search for dropdown recommendations
   useEffect(() => {
     if (!q.trim()) {
       setRecommendations([])
@@ -56,7 +52,6 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        // Fetch top 10 matching events using your existing API
         const response = await eventsApi.getEvents({ search: q, page: 0, size: 10 } as EventFilters)
         const fetchedEvents = response?.data?.data?.content || []
         setRecommendations(fetchedEvents)
@@ -66,7 +61,7 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
       } finally {
         setIsSearching(false)
       }
-    }, 500) // 500ms delay to prevent API spam
+    }, 500)
 
     return () => clearTimeout(delayDebounceFn)
   }, [q])
@@ -74,7 +69,6 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
   return (
     <div className="relative w-full py-20 md:py-28 bg-ink-900 overflow-hidden">
       
-      {/* The Background Image (Positioned on the right side) */}
       <div 
         className="absolute top-0 right-0 w-full md:w-3/4 h-full z-0 pointer-events-none"
         style={{
@@ -83,11 +77,9 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
           backgroundPosition: 'center',
         }}
       >
-        {/* Gradient Mask: Solid dark blue on left fading to transparent on right */}
         <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/90 to-transparent" />
       </div>
 
-      {/* Hero Content (Positioned on top of the background) */}
       <div className="relative z-10 page-container flex items-center h-full">
         <div className="max-w-2xl w-full">
           
@@ -104,12 +96,10 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
             {HERO_QUOTES[quoteIdx]}
           </p>
 
-          {/* Search Bar with Dropdown */}
           <div className="flex gap-4 max-w-xl w-full">
             <div className="relative flex-1" ref={dropdownRef}>
               
               <div className="bg-ink-800/80 backdrop-blur-md border border-ink-700/50 rounded-xl px-4 py-3 flex items-center shadow-lg transition-all focus-within:border-gold/50 focus-within:bg-ink-800 w-full">
-                {/* Search Icon or Spinner */}
                 {isSearching ? (
                   <svg className="w-5 h-5 text-gold animate-spin mr-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -134,7 +124,6 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
                   className="bg-transparent border-none outline-none text-white w-full placeholder:text-ink-400/70 font-sans"
                 />
 
-                {/* Clear Button (X) */}
                 {q && !isSearching && (
                   <button 
                     onClick={() => {
@@ -149,7 +138,6 @@ function Hero({ onSearch }: { onSearch: (q: string) => void }) {
                 )}
               </div>
 
-              {/* Recommendations Dropdown Menu */}
               {isDropdownOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-ink-900/5 shadow-xl overflow-hidden z-50 animate-fade-in">
                   {isSearching && recommendations.length === 0 ? (
@@ -239,8 +227,13 @@ export default function HomePage() {
     setFilters(f => ({ ...f, search: q || undefined, page: 0 }))
   }
 
-  const handleFilterChange = (newFilters: EventFilters) => {
+  const handleFilterChange = (newFilters: Partial<EventFilters>) => {
     setFilters(f => ({ ...f, ...newFilters, page: 0 }))
+  }
+
+  // ─── NEW: Explicitly wipe all filters back to default ───
+  const handleClearFilters = () => {
+    setFilters({ page: 0, size: 9, search: searchInput || undefined });
   }
 
   const events = data?.content ?? []
@@ -260,7 +253,6 @@ export default function HomePage() {
               </span>
             )}
             
-            {/* FLOATING UPDATING INDICATOR */}
             {isFetching && !isLoading && (
               <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-fade-in border border-white/10">
                 <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
@@ -271,12 +263,11 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
-          {/* Filters */}
           <aside>
-            <FilterPanel filters={filters} onChange={handleFilterChange} />
+            {/* ─── PASSED onClear PROP HERE ─── */}
+            <FilterPanel filters={filters} onChange={handleFilterChange} onClear={handleClearFilters} />
           </aside>
 
-          {/* Events grid */}
           <div>
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -287,7 +278,7 @@ export default function HomePage() {
                 <div className="text-5xl mb-4">🎭</div>
                 <h3 className="font-serif text-xl text-ink-900 mb-2">No events found</h3>
                 <p className="text-ink-600/60 font-sans text-sm">Try adjusting your filters or search terms.</p>
-                <button onClick={() => setFilters({ page: 0, size: 9 })} className="btn-outline mt-4">
+                <button onClick={handleClearFilters} className="btn-outline mt-4">
                   Clear all filters
                 </button>
               </div>

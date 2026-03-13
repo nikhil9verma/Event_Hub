@@ -1,109 +1,91 @@
 import type { EventFilters } from '../../types'
 
-const CATEGORIES = [
-  'Technology', 'Arts & Culture', 'Sports', 'Academic',
-  'Social', 'Career', 'Health', 'Other'
-]
-
 interface FilterPanelProps {
   filters: EventFilters
-  onChange: (filters: EventFilters) => void
+  onChange: (filters: Partial<EventFilters>) => void
+  onClear: () => void // ─── NEW: Explicit clear function
 }
 
-export default function FilterPanel({ filters, onChange }: FilterPanelProps) {
-  return (
-    <div className="bg-white rounded-2xl border border-ink-900/5 shadow-card p-5 sticky top-24">
-      <h3 className="font-serif text-lg text-ink-900 mb-4">Filters</h3>
+const CATEGORIES = ['Technology', 'Cultural', 'Sports', 'Workshop', 'Seminar']
 
-      {/* Category */}
-      <div className="mb-5">
-        <p className="label mb-2">Category</p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => onChange({ ...filters, category: undefined })}
-            className={`text-xs px-3 py-1.5 rounded-full border font-sans transition-all ${
-              !filters.category
-                ? 'bg-ink-900 text-gold border-ink-900'
-                : 'border-ink-900/15 text-ink-600 hover:border-ink-900/30'
-            }`}
-          >
-            All
-          </button>
+export default function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
+  
+  return (
+    <div className="bg-white border border-ink-900/10 rounded-2xl p-5 sticky top-24 shadow-sm">
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-ink-900/5">
+        <h3 className="font-serif text-lg font-bold text-ink-900">Filters</h3>
+        {/* ─── UPDATED: Calls the new onClear prop ─── */}
+        <button onClick={onClear} className="text-xs text-ink-500 hover:text-crimson font-medium">Clear All</button>
+      </div>
+
+      {/* ─── EVENT TYPE FILTER ─── */}
+      <div className="mb-6">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900/50 mb-3">Event Type</h4>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input 
+              type="radio" name="eventType" 
+              checked={!filters.eventType}
+              onChange={() => onChange({ eventType: undefined })}
+              className="accent-gold w-4 h-4"
+            />
+            <span className="text-sm text-ink-700 group-hover:text-ink-900">All Types</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input 
+              type="radio" name="eventType" 
+              checked={filters.eventType === 'SOLO'}
+              onChange={() => onChange({ eventType: 'SOLO' })}
+              className="accent-gold w-4 h-4"
+            />
+            <span className="text-sm text-ink-700 group-hover:text-ink-900 flex items-center gap-1.5"><span className="text-xs">👤</span> Solo Events</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input 
+              type="radio" name="eventType" 
+              checked={filters.eventType === 'TEAM'}
+              onChange={() => onChange({ eventType: 'TEAM' })}
+              className="accent-gold w-4 h-4"
+            />
+            <span className="text-sm text-ink-700 group-hover:text-ink-900 flex items-center gap-1.5"><span className="text-xs">👥</span> Team Events</span>
+          </label>
+          
+        </div>
+      </div>
+
+      {/* ─── CATEGORY FILTER ─── */}
+      <div className="mb-6">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900/50 mb-3">Category</h4>
+        <div className="flex flex-col gap-2">
           {CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => onChange({ ...filters, category: filters.category === cat ? undefined : cat })}
-              className={`text-xs px-3 py-1.5 rounded-full border font-sans transition-all ${
-                filters.category === cat
-                  ? 'bg-ink-900 text-gold border-ink-900'
-                  : 'border-ink-900/15 text-ink-600 hover:border-ink-900/30'
-              }`}
-            >
-              {cat}
-            </button>
+            <label key={cat} className="flex items-center gap-2 cursor-pointer group">
+              <input 
+                type="radio" 
+                name="category"
+                checked={filters.category === cat}
+                onChange={() => onChange({ category: cat })}
+                className="accent-gold w-4 h-4"
+              />
+              <span className="text-sm text-ink-700 group-hover:text-ink-900">{cat}</span>
+            </label>
           ))}
         </div>
       </div>
 
-      {/* Availability */}
-      <div className="mb-5">
-        <p className="label mb-2">Availability</p>
-        <label className="flex items-center gap-2.5 cursor-pointer group">
-          <div
-            onClick={() => onChange({ ...filters, available: !filters.available })}
-            className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
-              filters.available ? 'bg-gold' : 'bg-ink-900/15'
-            }`}
-          >
-            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-              filters.available ? 'translate-x-5' : 'translate-x-0.5'
-            }`} />
-          </div>
-          <span className="text-sm text-ink-700 font-sans">Available seats only</span>
+      {/* ─── AVAILABILITY FILTER ─── */}
+      <div className="mb-6">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-ink-900/50 mb-3">Availability</h4>
+        <label className="flex items-center gap-2 cursor-pointer group">
+          <input 
+            type="checkbox"
+            checked={filters.available || false}
+            onChange={e => onChange({ available: e.target.checked ? true : undefined })}
+            className="accent-gold rounded border-ink-300 w-4 h-4"
+          />
+          <span className="text-sm text-ink-700 group-hover:text-ink-900">Open for Registration</span>
         </label>
       </div>
 
-      {/* Date range */}
-      <div className="mb-5">
-        <p className="label mb-2">Date Range</p>
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs text-ink-600/60 font-sans mb-1 block">From</label>
-            <input
-              type="date"
-              value={filters.dateFrom?.split('T')[0] || ''}
-              onChange={e => onChange({ ...filters, dateFrom: e.target.value ? e.target.value + 'T00:00:00' : undefined })}
-              className="input-field text-sm py-2"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-ink-600/60 font-sans mb-1 block">To</label>
-            <input
-              type="date"
-              value={filters.dateTo?.split('T')[0] || ''}
-              onChange={e => onChange({ ...filters, dateTo: e.target.value ? e.target.value + 'T23:59:59' : undefined })}
-              className="input-field text-sm py-2"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Clear */}
-      {(filters.category || filters.available || filters.dateFrom || filters.dateTo) && (
-        <button
-          onClick={() => onChange({ 
-            page: 0, 
-            size: 9, 
-            category: undefined,
-            available: undefined,
-            dateFrom: undefined,
-            dateTo: undefined
-          })}
-          className="w-full text-sm text-crimson font-sans hover:text-crimson/70 transition-colors py-2"
-        >
-          Clear all filters
-        </button>
-      )}
     </div>
   )
 }

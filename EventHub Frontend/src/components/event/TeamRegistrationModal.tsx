@@ -7,13 +7,13 @@ interface TeamRegistrationModalProps {
   event: Event
   isOpen: boolean
   onClose: () => void
-  onSubmitTeam: (teamData: { teamName: string; teamMembers: { name: string; email: string }[] }) => void
+  onSubmitTeam: (teamData: { teamName: string; teamMembers: { email: string }[] }) => void
   isPending: boolean
 }
 
 interface FormValues {
   teamName: string 
-  teamMembers: { name: string; email: string }[]
+  teamMembers: { email: string }[]
 }
 
 export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmitTeam, isPending }: TeamRegistrationModalProps) {
@@ -26,7 +26,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
   const { register, handleSubmit, control, formState: { errors }, reset } = useForm<FormValues>({
     defaultValues: {
       teamName: '', 
-      teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' })
+      teamMembers: Array(maxExtraMembers).fill({ email: '' })
     }
   })
 
@@ -40,7 +40,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
     if (isOpen) {
       reset({ 
         teamName: '', 
-        teamMembers: Array(maxExtraMembers).fill({ name: '', email: '' }) 
+        teamMembers: Array(maxExtraMembers).fill({ email: '' }) 
       })
     }
   }, [isOpen, maxExtraMembers, reset])
@@ -49,7 +49,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
 
   const handleFormSubmit = (data: FormValues) => {
     // Filter out completely empty optional rows before sending to backend
-    const validMembers = data.teamMembers.filter(member => member.name.trim() !== '' && member.email.trim() !== '')
+    const validMembers = data.teamMembers.filter(member => member.email.trim() !== '')
     
     onSubmitTeam({ 
       teamName: data.teamName, 
@@ -62,9 +62,9 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="p-6 border-b border-ink-900/5 flex justify-between items-center bg-ink-50/50">
+        <div className="p-6 border-b border-ink-900/5 flex justify-between items-center bg-ink-50/50 shrink-0">
           <div>
-            <h2 className="font-serif text-2xl text-ink-900">Team Registration</h2>
+            <h2 className="font-serif text-2xl text-ink-900">Register Team</h2>
             <p className="text-sm text-ink-600 font-sans mt-1">
               {event?.minTeamSize === event?.maxTeamSize 
                 ? `This event requires a team of exactly ${event?.maxTeamSize || 1}.` 
@@ -85,12 +85,21 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
               </label>
               <input 
                 {...register('teamName', { required: "Team name is required" })} 
-                placeholder="e.g. The Avengers"
-                className="input-field py-2 text-sm w-full"
+                placeholder="e.g. The Code Fathers"
+                className="input-field py-2 text-sm w-full border border-ink-200 focus:ring-2 focus:ring-gold/50 outline-none rounded-lg px-3"
               />
               {errors.teamName && (
                 <p className="text-crimson text-xs mt-1">{errors.teamName.message}</p>
               )}
+            </div>
+
+            {/* ─── INVITATION EXPLANATION BANNER ─── */}
+            <div className="bg-blue-50/80 p-3.5 rounded-xl border border-blue-100 flex gap-3 text-blue-800 shadow-sm">
+              <span className="text-lg">📧</span> 
+              <div className="text-xs leading-relaxed font-medium">
+                We will send invitations to these emails. <br/>
+                <span className="text-blue-600/80 font-normal">Make sure they already have an EventHub account, or the invitation will fail.</span>
+              </div>
             </div>
 
             {/* Slot 1: The Leader (Read Only) */}
@@ -99,8 +108,8 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
                 👑 Team Leader (You)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 opacity-70 cursor-not-allowed">
-                <input value={user?.name || ''} disabled className="input-field py-2 text-sm bg-white w-full" />
-                <input value={user?.email || ''} disabled className="input-field py-2 text-sm bg-white w-full" />
+                <input value={user?.name || ''} disabled className="input-field py-2 text-sm bg-white w-full border border-ink-200 rounded-lg px-3" />
+                <input value={user?.email || ''} disabled className="input-field py-2 text-sm bg-white w-full border border-ink-200 rounded-lg px-3" />
               </div>
             </div>
 
@@ -115,32 +124,18 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
                     {!isRequired && <span className="badge border bg-ink-50 text-[10px] lowercase normal-case">Optional</span>}
                   </h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <input 
-                        {...register(`teamMembers.${index}.name`, { 
-                          required: isRequired ? "Name is required" : false 
-                        })} 
-                        placeholder="Full Name"
-                        className="input-field py-2 text-sm w-full"
-                      />
-                      {errors.teamMembers?.[index]?.name && (
-                        <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.name?.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <input 
-                        {...register(`teamMembers.${index}.email`, { 
-                          required: isRequired ? "Email is required" : false,
-                          pattern: { value: /^\S+@\S+$/i, message: "Invalid email" }
-                        })} 
-                        placeholder="Email Address"
-                        className="input-field py-2 text-sm w-full"
-                      />
-                      {errors.teamMembers?.[index]?.email && (
-                        <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.email?.message}</p>
-                      )}
-                    </div>
+                  <div>
+                    <input 
+                      {...register(`teamMembers.${index}.email`, { 
+                        required: isRequired ? "Email is required" : false,
+                        pattern: { value: /^\S+@\S+$/i, message: "Invalid email" }
+                      })} 
+                      placeholder="Teammate's Email Address"
+                      className="input-field py-2 text-sm w-full border border-ink-200 focus:ring-2 focus:ring-gold/50 outline-none rounded-lg px-3"
+                    />
+                    {errors.teamMembers?.[index]?.email && (
+                      <p className="text-crimson text-xs mt-1">{errors.teamMembers[index]?.email?.message}</p>
+                    )}
                   </div>
                 </div>
               )
@@ -157,7 +152,7 @@ export default function TeamRegistrationModal({ event, isOpen, onClose, onSubmit
             disabled={isPending} 
             className="btn-gold px-8 flex items-center gap-2"
           >
-            {isPending ? 'Registering...' : 'Complete Registration →'}
+            {isPending ? 'Sending Invites...' : 'Send Invitations →'}
           </button>
         </div>
 

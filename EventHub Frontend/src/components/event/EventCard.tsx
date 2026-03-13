@@ -10,22 +10,25 @@ export const getImageUrl = (url?: string) => {
 export default function EventCard({ event, featured }: { event: Event; featured?: boolean }) {
   if (!event) return null; // Safety guard
 
+  const isCrowdEvent = event.requiresRegistration === false;
   const isCompleted = event.status === 'COMPLETED'
   const isSuspended = event.status === 'SUSPENDED'
-  const isTeamEvent = event.maxTeamSize > 1
+  const isTeamEvent = event.maxTeamSize > 1 && !isCrowdEvent
 
   // Format team size text elegantly
-  const teamText = isTeamEvent 
+  const teamText = isCrowdEvent ? 'Crowd Event (No Reg.)' : isTeamEvent 
     ? (event.minTeamSize === event.maxTeamSize ? `Team of ${event.maxTeamSize}` : `Team (${event.minTeamSize}-${event.maxTeamSize})`) 
     : 'Solo Event'
 
   // Calculate Registration Progress
-  const fillPct = Math.min(100, (event.registrationCount / event.maxParticipants) * 100)
+  const fillPct = Math.min(100, (event.registrationCount / Math.max(1, event.maxParticipants)) * 100)
   const isWaitlist = event.registrationCount >= event.maxParticipants
 
   // Check User's Registration Status
   const isUserRegistered = event.currentUserRegistrationStatus === 'REGISTERED'
   const isUserWaitlisted = event.currentUserRegistrationStatus === 'WAITLIST'
+  const isPendingInvite = event.currentUserRegistrationStatus === 'PENDING_INVITATION'
+  const isIncomplete = event.currentUserRegistrationStatus === 'INCOMPLETE'
 
   return (
     <div className={`group relative bg-white rounded-2xl border ${featured ? 'border-yellow-500 shadow-md' : 'border-ink-900/5'} shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col w-[320px] h-[440px] shrink-0 overflow-hidden hover:-translate-y-1`}>
@@ -45,14 +48,6 @@ export default function EventCard({ event, featured }: { event: Event; featured?
         <div className="absolute top-3 right-3 px-2.5 py-1 bg-ink-900/80 backdrop-blur-md border border-white/10 rounded text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
           {format(new Date(event.eventDate), 'MMM d')}
         </div>
-
-        {/* Featured Badge (Uncomment if needed) */}
-        {/* {featured && (
-          <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-yellow-500 text-white rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-            Featured
-          </div>
-        )} */}
 
         {(isCompleted || isSuspended) && (
           <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px] flex items-center justify-center z-10">
@@ -82,47 +77,65 @@ export default function EventCard({ event, featured }: { event: Event; featured?
             <span className="truncate">{event.venue}</span>
           </div>
           <div className="flex items-center gap-2.5">
-            <svg className={`w-3.5 h-3.5 ${isTeamEvent ? 'text-yellow-500' : 'text-ink-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {isTeamEvent ? (
+            <svg className={`w-3.5 h-3.5 ${isCrowdEvent ? 'text-indigo-500' : isTeamEvent ? 'text-yellow-500' : 'text-ink-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {isCrowdEvent ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              ) : isTeamEvent ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20c.23-.574.356-1.201.356-1.857 0-1.53-.5-2.95-1.356-4.143M12 14a4 4 0 100-8 4 4 0 000 8zM17 20c-.23-.574-.356-1.201-.356-1.857 0-1.53.5-2.95 1.356-4.143" />
               ) : (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               )}
             </svg>
-            <span className={isTeamEvent ? 'font-semibold text-yellow-600' : ''}>{teamText}</span>
+            <span className={isCrowdEvent ? 'font-semibold text-indigo-600' : isTeamEvent ? 'font-semibold text-yellow-600' : ''}>{teamText}</span>
           </div>
         </div>
 
-        {/* ─── REGISTRATION SLIDER ─── */}
-        <div className="mt-4 mb-4">
-          <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-wider mb-2">
-            <span className="text-ink-500">{event.registrationCount} Registered</span>
-            {isWaitlist ? (
-              <span className="text-red-500">{event.waitlistCount} on waitlist</span>
-            ) : (
-              <span className={event.availableSeats <= 5 ? 'text-amber-500' : 'text-ink-400'}>
-                {event.availableSeats} spots left
-              </span>
-            )}
+        {/* ─── REGISTRATION SLIDER (HIDDEN FOR CROWD EVENTS) ─── */}
+        {!isCrowdEvent ? (
+          <div className="mt-4 mb-4">
+            <div className="flex justify-between items-end text-[10px] font-bold uppercase tracking-wider mb-2">
+              <span className="text-ink-500">{event.registrationCount} Registered</span>
+              {isWaitlist ? (
+                <span className="text-red-500">{event.waitlistCount} on waitlist</span>
+              ) : (
+                <span className={event.availableSeats <= 5 ? 'text-amber-500' : 'text-ink-400'}>
+                  {event.availableSeats} spots left
+                </span>
+              )}
+            </div>
+            <div className="w-full bg-ink-100 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  fillPct >= 100 ? 'bg-red-500' : fillPct > 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${fillPct}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-ink-100 rounded-full h-1.5 overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all duration-1000 ${
-                fillPct >= 100 ? 'bg-red-500' : fillPct > 80 ? 'bg-amber-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${fillPct}%` }}
-            />
-          </div>
-        </div>
+        ) : (
+          <div className="mt-8 mb-4"></div> // Spacer to keep card heights consistent
+        )}
 
-        {/* ─── DYNAMIC STATUS BUTTON (NO DIRECT REGISTRATION) ─── */}
-        {isUserRegistered ? (
+        {/* ─── DYNAMIC STATUS BUTTON ─── */}
+        {isCrowdEvent ? (
+          <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors">
+            📢 View Event Info
+          </Link>
+        ) : isUserRegistered ? (
           <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
-            ✅ You are Registered
+             You are Registered
           </Link>
         ) : isUserWaitlisted ? (
           <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors">
             ⏳ On Waitlist
+          </Link>
+        ) : isPendingInvite ? (
+          <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+            👋 Confirm Registration
+          </Link>
+        ) : isIncomplete ? (
+          <Link to={`/events/${event.id}`} className="block w-full text-center py-2.5 rounded-xl text-sm font-bold shadow-sm bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
+            ⚠️ Incomplete Team
           </Link>
         ) : (
           <Link 
