@@ -251,20 +251,21 @@ export default function HomePage() {
       <Hero onSearch={handleSearch} />
 
       <div className="page-container py-10">
-        {/* Stats bar */}
         {data && (
-          <div className="flex items-center gap-6 mb-8 text-sm font-sans text-ink-600/60">
+          <div className="flex items-center gap-6 mb-8 text-sm font-sans text-ink-600/60 min-h-[24px]">
             {filters.search && (
               <span className="flex items-center gap-1">
                 Results for <strong className="text-ink-900">"{filters.search}"</strong>
-                <button onClick={() => handleSearch('')} className="ml-1 text-crimson hover:text-crimson/70">✕</button>
+                <button onClick={() => handleSearch('')} className="ml-1 text-red-500 hover:text-red-700 font-bold">✕</button>
               </span>
             )}
+            
+            {/* FLOATING UPDATING INDICATOR */}
             {isFetching && !isLoading && (
-              <span className="flex items-center gap-1.5 text-gold">
-                <div className="w-2 h-2 bg-gold rounded-full animate-pulse" />
-                Updating...
-              </span>
+              <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-ink-900 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-fade-in border border-white/10">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                Syncing Events...
+              </div>
             )}
           </div>
         )}
