@@ -17,7 +17,7 @@ const schema = z.object({
   category: z.string().min(1, 'Category is required'),
   maxParticipants: z.coerce.number().min(1).max(10000),
   eventDate: z.string().min(1, 'Event date is required'),
-  eventEndTime: z.string().min(1, 'End time is required'), // Added
+  eventEndTime: z.string().min(1, 'End time is required'),
   registrationDeadline: z.string().min(1, 'Registration deadline is required'),
   reminderHours: z.coerce.number().min(1).max(72).optional().or(z.literal('')),
   
@@ -68,6 +68,7 @@ export default function CreateEventPage() {
 
   const [enableReminder, setEnableReminder] = useState(false)
   const [isTeamEvent, setIsTeamEvent] = useState(false)
+  const [requiresRegistration, setRequiresRegistration] = useState(true) // ─── NEW STATE FOR CROWD EVENTS ───
 
   const { data: existingEvent, isLoading: isEventLoading } = useQuery({
     queryKey: ['event', Number(id)],
@@ -79,6 +80,7 @@ export default function CreateEventPage() {
     if (existingEvent) {
       setEnableReminder(existingEvent.reminderHours != null && existingEvent.reminderHours > 0)
       setIsTeamEvent(existingEvent.maxTeamSize > 1)
+      setRequiresRegistration(existingEvent.requiresRegistration !== false)
     }
   }, [existingEvent])
 
@@ -118,8 +120,12 @@ export default function CreateEventPage() {
         eventEndTime: data.eventEndTime.length === 16 ? data.eventEndTime + ':00' : data.eventEndTime,
         registrationDeadline: data.registrationDeadline.length === 16 ? data.registrationDeadline + ':00' : data.registrationDeadline,
         reminderHours: (enableReminder && data.reminderHours) ? Number(data.reminderHours) : null,
-        minTeamSize: isTeamEvent ? data.minTeamSize : 1,
-        maxTeamSize: isTeamEvent ? data.maxTeamSize : 1,
+        
+        requiresRegistration: requiresRegistration, // Pass the toggle state
+        maxParticipants: requiresRegistration ? data.maxParticipants : 99999, // Ignore limits if crowd event
+        minTeamSize: requiresRegistration && isTeamEvent ? data.minTeamSize : 1,
+        maxTeamSize: requiresRegistration && isTeamEvent ? data.maxTeamSize : 1,
+
         stages: data.stages.map(stage => ({
           ...stage,
           stageDate: stage.stageDate.length === 16 ? stage.stageDate + ':00' : stage.stageDate
@@ -195,10 +201,18 @@ export default function CreateEventPage() {
           {errors.description && <p className="text-crimson text-xs mt-1">{errors.description.message}</p>}
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <select {...register('category')} className="input-field bg-white">
-              <option value="">Select a category</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            
+            {/* ─── FIXED CATEGORY DROPDOWN ─── */}
+            <div className="flex flex-col">
+              <select {...register('category')} className="input-field cursor-pointer">
+                <option value="">Select Category</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              {errors.category && <p className="text-crimson text-xs mt-1">{errors.category.message}</p>}
+            </div>
+
             <input {...register('contactEmail')} type="email" className="input-field" placeholder="Contact Email (Optional)" />
           </div>
           <input {...register('venue')} className="input-field" placeholder="Venue" />
@@ -206,7 +220,15 @@ export default function CreateEventPage() {
 
         {/* Logistics */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-serif text-lg text-ink-900">Logistics</h2>
+          <div className="flex items-center justify-between border-b border-ink-900/5 pb-3">
+            <h2 className="font-serif text-lg text-ink-900">Logistics</h2>
+            <label className="relative inline-flex items-center cursor-pointer gap-3">
+              <span className="text-sm font-bold text-ink-600">Requires Registration</span>
+              <input type="checkbox" checked={requiresRegistration} onChange={e => setRequiresRegistration(e.target.checked)} className="sr-only peer" />
+              <div className="w-11 h-6 bg-ink-900/20 rounded-full peer-checked:bg-gold transition-all after:content-[''] after:absolute after:top-[2px] after:right-[42px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-[20px]"></div>
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Starts At</label>
@@ -219,43 +241,49 @@ export default function CreateEventPage() {
               {errors.eventEndTime && <p className="text-crimson text-xs mt-1">{errors.eventEndTime.message}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Registration Deadline</label>
-              <input {...register('registrationDeadline')} type="datetime-local" className="input-field" />
-              {errors.registrationDeadline && <p className="text-crimson text-xs mt-1">{errors.registrationDeadline.message}</p>}
-            </div>
-            <div>
-              <label className="label">Max Participants / Teams</label>
-              <input {...register('maxParticipants')} type="number" className="input-field" />
-            </div>
-          </div>
-        </div>
-
-        {/* Team Requirements */}
-        <div className="card p-5 space-y-4 border-l-4 border-gold">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg text-ink-900">Team Requirements</h2>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={isTeamEvent} onChange={e => setIsTeamEvent(e.target.checked)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-ink-900/20 rounded-full peer-checked:bg-gold transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-            </label>
-          </div>
-          {isTeamEvent && (
-            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-ink-900/5">
+          
+          {requiresRegistration && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
               <div>
-                <label className="label">Min Team Size</label>
-                <input {...register('minTeamSize')} type="number" className="input-field" />
-                {errors.minTeamSize && <p className="text-crimson text-xs mt-1">{errors.minTeamSize.message}</p>}
+                <label className="label">Registration Deadline</label>
+                <input {...register('registrationDeadline')} type="datetime-local" className="input-field" />
+                {errors.registrationDeadline && <p className="text-crimson text-xs mt-1">{errors.registrationDeadline.message}</p>}
               </div>
               <div>
-                <label className="label">Max Team Size</label>
-                <input {...register('maxTeamSize')} type="number" className="input-field" />
-                {errors.maxTeamSize && <p className="text-crimson text-xs mt-1">{errors.maxTeamSize.message}</p>}
+                <label className="label">Max Participants / Teams</label>
+                <input {...register('maxParticipants')} type="number" className="input-field" />
+                {errors.maxParticipants && <p className="text-crimson text-xs mt-1">{errors.maxParticipants.message}</p>}
               </div>
             </div>
           )}
         </div>
+
+        {/* Team Requirements (Only shown if registration is required) */}
+        {requiresRegistration && (
+          <div className="card p-5 space-y-4 border-l-4 border-gold animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-lg text-ink-900">Team Requirements</h2>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={isTeamEvent} onChange={e => setIsTeamEvent(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-ink-900/20 rounded-full peer-checked:bg-gold transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+              </label>
+            </div>
+            {isTeamEvent && (
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t border-ink-900/5">
+                <div>
+                  <label className="label">Min Team Size</label>
+                  <input {...register('minTeamSize')} type="number" className="input-field" />
+                  {errors.minTeamSize && <p className="text-crimson text-xs mt-1">{errors.minTeamSize.message}</p>}
+                </div>
+                <div>
+                  <label className="label">Max Team Size</label>
+                  <input {...register('maxTeamSize')} type="number" className="input-field" />
+                  {errors.maxTeamSize && <p className="text-crimson text-xs mt-1">{errors.maxTeamSize.message}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Prizes */}
         <div className="card p-5 space-y-4">

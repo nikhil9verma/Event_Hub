@@ -6,8 +6,17 @@ interface FilterPanelProps {
   onClear: () => void // ─── NEW: Explicit clear function
 }
 
-const CATEGORIES = ['Technology', 'Cultural', 'Sports', 'Workshop', 'Seminar']
-
+// Replace your existing CATEGORIES array near the top of the file with this:
+const CATEGORIES = [
+  'Technology', 
+  'Arts & Culture', 
+  'Sports', 
+  'Academic', 
+  'Social', 
+  'Career', 
+  'Health', 
+  'Other'
+];
 export default function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
   
   return (
