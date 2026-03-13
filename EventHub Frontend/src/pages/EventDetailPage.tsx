@@ -47,7 +47,7 @@ export default function EventDetailPage() {
   const { data: event, isLoading } = useQuery<Event>({
     queryKey: ['event', Number(id)],
     queryFn: () => eventsApi.getEvent(Number(id)).then((r: any) => r.data.data ?? null),
-    refetchInterval: 10000,
+    refetchInterval: 30000,
   })
 
   const { data: commentsData } = useQuery({

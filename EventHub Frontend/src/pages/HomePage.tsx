@@ -218,7 +218,7 @@ export default function HomePage() {
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['events', filters],
     queryFn: () => eventsApi.getEvents(filters).then((r: { data: { data: any } }) => r.data.data??null),
-    refetchInterval: 10000, 
+    refetchInterval: 60000, 
     placeholderData: (prev) => prev,
   })
 
