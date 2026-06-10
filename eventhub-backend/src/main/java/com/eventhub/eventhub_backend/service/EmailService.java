@@ -28,6 +28,7 @@ public class EmailService {
 
     // ─── AUTH & OTP EMAILS ──────────────────────────────────────────────────────
 
+    @Async("emailTaskExecutor")
     public void sendOtpEmail(String to, String otp) {
         String subject = "Verify your Event Hub Account";
         String htmlBody = "<h2>Welcome to Event Hub!</h2>" +
@@ -36,6 +37,7 @@ public class EmailService {
         sendHtmlEmail(to, subject, htmlBody);
     }
 
+    @Async("emailTaskExecutor")
     public void sendForgotPasswordOtp(String to, String otp) {
         String subject = "Password Reset Request";
         String htmlBody = "<h2>Password Reset</h2>" +
