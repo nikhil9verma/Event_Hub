@@ -1,6 +1,6 @@
 package com.eventhub.eventhub_backend.config;
 
-import org.springframework.beans.factory.annotation.Value; // <-- Added Import
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 import com.eventhub.eventhub_backend.security.JwtAuthenticationFilter;
@@ -27,6 +27,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @Configuration
 @EnableWebSecurity
@@ -37,7 +38,6 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    // <-- Injected the frontend URL from application.properties
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
@@ -69,13 +69,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+        String configuredFrontendUrl = frontendUrl == null ? "" : frontendUrl.trim();
 
-        // Added your official production domain to the whitelist
-        config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "https://event-hub-beta-cyan.vercel.app",
-                "https://eventhub.nikhilverma.tech" // <-- THE FIX
-        ));
+        config.setAllowedOrigins(Stream.of(
+                        configuredFrontendUrl,
+                        "http://localhost:5173",
+                        "http://localhost:5174",
+                        "https://event-hub-beta-cyan.vercel.app",
+                        "https://eventhub.nikhilverma.tech"
+                )
+                .filter(origin -> !origin.isBlank())
+                .distinct()
+                .toList());
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

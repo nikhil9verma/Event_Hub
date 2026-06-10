@@ -29,9 +29,8 @@ const EVENT_TYPES: { label: string; value: EventFilters['eventType'] | undefined
 ]
 
 
-
-
 // ─── Compact Stats Banner ───
+
 function StatsBanner({ totalElements }: { totalElements: number }) {
   const { user } = useAuthStore()
 

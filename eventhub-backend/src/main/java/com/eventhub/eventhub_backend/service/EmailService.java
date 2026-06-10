@@ -3,11 +3,11 @@ package com.eventhub.eventhub_backend.service;
 import com.eventhub.eventhub_backend.entity.Event;
 import com.eventhub.eventhub_backend.entity.TeamMember;
 import com.eventhub.eventhub_backend.entity.User;
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -23,13 +23,11 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    // ─── FIX: Now pulls the correct sender identity instead of the word "resend" ───
-    @Value("${app.resend.from-email}")
+    @Value("${app.mail.from-email}")
     private String fromEmail;
 
     // ─── AUTH & OTP EMAILS ──────────────────────────────────────────────────────
 
-    @Async("emailTaskExecutor")
     public void sendOtpEmail(String to, String otp) {
         String subject = "Verify your Event Hub Account";
         String htmlBody = "<h2>Welcome to Event Hub!</h2>" +
@@ -38,7 +36,6 @@ public class EmailService {
         sendHtmlEmail(to, subject, htmlBody);
     }
 
-    @Async("emailTaskExecutor")
     public void sendForgotPasswordOtp(String to, String otp) {
         String subject = "Password Reset Request";
         String htmlBody = "<h2>Password Reset</h2>" +
@@ -128,8 +125,9 @@ public class EmailService {
 
             mailSender.send(message);
             log.info("Email sent to {}", to);
-        } catch (MessagingException e) {
+        } catch (MailException | jakarta.mail.MessagingException e) {
             log.error("Failed to send email to {}", to, e);
+            throw new IllegalStateException("Unable to send OTP email right now. Please try again.");
         }
     }
 
@@ -153,7 +151,7 @@ public class EmailService {
 
                 mailSender.send(message);
                 log.info("Sent bulk email batch to {} recipients", batch.size());
-            } catch (MessagingException e) {
+            } catch (MailException | jakarta.mail.MessagingException e) {
                 log.error("Failed to send bulk email batch", e);
             }
         }
