@@ -70,13 +70,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         String configuredFrontendUrl = frontendUrl == null ? "" : frontendUrl.trim();
-
         config.setAllowedOrigins(Stream.of(
                         configuredFrontendUrl,
                         "http://localhost:5173",
-                        "http://localhost:5174",
-                        "https://event-hub-beta-cyan.vercel.app",
-                        "https://eventhub.nikhilverma.tech"
+                        "https://event-hub-beta-cyan.vercel.app"
                 )
                 .filter(origin -> !origin.isBlank())
                 .distinct()
