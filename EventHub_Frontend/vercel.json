@@ -1,11 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "https://event-hub-1cil.onrender.com/:path*"
+      "source": "/api/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/api/:match*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/events/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/events/:match*"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
