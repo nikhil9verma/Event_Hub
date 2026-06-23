@@ -2,7 +2,27 @@
   "rewrites": [
     {
       "source": "/api/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/:match*"
+    },
+    {
+      "source": "/events/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/events/:match*"
+    },
+    {
+      "source": "/auth/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/auth/:match*"
+    },
+    {
+      "source": "/admin/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/admin/:match*"
+    },
+    {
+      "source": "/notifications/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/notifications/:match*"
+    },
+    {
+      "source": "/registrations/:match*",
+      "destination": "https://event-hub-1cil.onrender.com/registrations/:match*"
     },
     {
       "source": "/(.*)",
