@@ -89,7 +89,7 @@ export default function Layout() {
   }
 
   const isHost = user?.role === 'HOST' || user?.role === 'SUPER_ADMIN'
-  const isHome = location.pathname === '/'
+
 
   // ─── Determine search placeholder based on route ───
   const getSearchPlaceholder = () => {

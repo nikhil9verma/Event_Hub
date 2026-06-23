@@ -71,9 +71,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         String configuredFrontendUrl = frontendUrl == null ? "" : frontendUrl.trim();
         config.setAllowedOrigins(Stream.of(
-                        configuredFrontendUrl,
-                        "http://localhost:5173",
-                        "https://event-hub-beta-cyan.vercel.app"
+                        configuredFrontendUrl
                 )
                 .filter(origin -> !origin.isBlank())
                 .distinct()

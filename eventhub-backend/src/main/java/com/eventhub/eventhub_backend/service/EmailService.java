@@ -123,7 +123,7 @@ public class EmailService {
             helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(htmlBody, true); // true = HTML format
+            helper.setText(htmlBody, true); 
 
             mailSender.send(message);
             log.info("Email sent to {}", to);
@@ -146,7 +146,7 @@ public class EmailService {
                 MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
                 helper.setFrom(fromEmail);
-                helper.setTo(fromEmail); // Best practice: send to self, BCC everyone else
+                helper.setTo(fromEmail); 
                 helper.setBcc(batch.toArray(new String[0]));
                 helper.setSubject(subject);
                 helper.setText(htmlBody, true);
