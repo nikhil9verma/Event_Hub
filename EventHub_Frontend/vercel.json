@@ -6,23 +6,23 @@
     },
     {
       "source": "/events/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/events/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/events/:match*"
     },
     {
       "source": "/auth/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/auth/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/auth/:match*"
     },
     {
       "source": "/admin/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/admin/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/admin/:match*"
     },
     {
       "source": "/notifications/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/notifications/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/notifications/:match*"
     },
     {
       "source": "/registrations/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/registrations/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/api/registrations/:match*"
     },
     {
       "source": "/(.*)",
