@@ -2,11 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/api/:match*"
-    },
-    {
-      "source": "/events/:match*",
-      "destination": "https://event-hub-1cil.onrender.com/events/:match*"
+      "destination": "https://event-hub-1cil.onrender.com/:match*"
     },
     {
       "source": "/(.*)",
