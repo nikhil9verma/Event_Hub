@@ -1,10 +1,11 @@
 package com.eventhub.eventhub_backend.dto.request;
 
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class AuthRequests {
 
@@ -28,6 +29,8 @@ public class AuthRequests {
     }
 
     @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class Login {
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
