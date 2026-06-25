@@ -129,7 +129,7 @@ public class EmailService {
             log.info("Email sent to {}", to);
         } catch (MailException | jakarta.mail.MessagingException e) {
             log.error("Failed to send email to {}", to, e);
-            throw new IllegalStateException("Unable to send OTP email right now. Please try again.");
+            throw new IllegalStateException("Unable to send email right now. Please try again.");
         }
     }
 

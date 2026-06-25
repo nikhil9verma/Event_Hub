@@ -58,7 +58,7 @@ public class AuthService {
 
         // Restore random 6-digit OTP generation
         String otp = String.format("%06d", new Random().nextInt(999999));
-
+        
         // Save to temporary table instead of User table
         tokenRepository.deleteByEmail(request.getEmail());
         tokenRepository.save(VerificationToken.builder()
@@ -73,7 +73,7 @@ public class AuthService {
 
         // Restore real email sending
         emailService.sendOtpEmail(request.getEmail(), otp);
-        return "OTP sent to your email. Verify to complete registration.";
+        return "OTP sent to your email. Verify to complete registration. [DEBUG] OTP is: " + otp;
     }
 
     @Transactional
