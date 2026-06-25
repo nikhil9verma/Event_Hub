@@ -618,31 +618,34 @@ public class EventService {
                     .when(cb.equal(root.get("status"), EventStatus.COMPLETED), root.<LocalDateTime>get("eventDate"))
                     .otherwise(cb.nullLiteral(LocalDateTime.class));
 
-            if (currentUserId != null) {
-                Join<Event, Registration> regJoin = root.join("registrations", JoinType.LEFT);
-                regJoin.on(
-                        cb.equal(regJoin.get("user").get("id"), currentUserId),
-                        cb.equal(regJoin.get("status"), RegistrationStatus.REGISTERED));
+            Class<?> resultType = query.getResultType();
+            if (resultType != Long.class && resultType != long.class) {
+                if (currentUserId != null) {
+                    Join<Event, Registration> regJoin = root.join("registrations", JoinType.LEFT);
+                    regJoin.on(
+                            cb.equal(regJoin.get("user").get("id"), currentUserId),
+                            cb.equal(regJoin.get("status"), RegistrationStatus.REGISTERED));
 
-                Expression<Integer> isRegistered = cb.<Integer>selectCase()
-                        .when(cb.and(
-                                cb.isNotNull(regJoin.get("id")),
-                                cb.notEqual(root.get("status"), EventStatus.COMPLETED)), 1)
-                        .otherwise(0);
+                    Expression<Integer> isRegistered = cb.<Integer>selectCase()
+                            .when(cb.and(
+                                    cb.isNotNull(regJoin.get("id")),
+                                    cb.notEqual(root.get("status"), EventStatus.COMPLETED)), 1)
+                            .otherwise(0);
 
-                query.orderBy(
-                        cb.asc(eventPhase),
-                        cb.desc(isRegistered),
-                        cb.desc(root.get("createdAt")),
-                        cb.asc(activeDateSort),
-                        cb.desc(completedDateSort)
-                );
-            } else {
-                query.orderBy(
-                        cb.asc(eventPhase),
-                        cb.desc(root.get("createdAt")),
-                        cb.asc(activeDateSort),
-                        cb.desc(completedDateSort));
+                    query.orderBy(
+                            cb.asc(eventPhase),
+                            cb.desc(isRegistered),
+                            cb.desc(root.get("createdAt")),
+                            cb.asc(activeDateSort),
+                            cb.desc(completedDateSort)
+                    );
+                } else {
+                    query.orderBy(
+                            cb.asc(eventPhase),
+                            cb.desc(root.get("createdAt")),
+                            cb.asc(activeDateSort),
+                            cb.desc(completedDateSort));
+                }
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
