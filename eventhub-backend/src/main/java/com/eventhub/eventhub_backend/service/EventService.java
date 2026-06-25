@@ -23,7 +23,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Join;
@@ -45,7 +44,6 @@ public class EventService {
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
     private final NotificationService notificationService;
-    private final TeamMemberRepository teamMemberRepository;
 
     // ─── NEW HELPER: TEAM-AWARE SLOT COUNTING ───
     private long countOccupiedSlots(Long eventId) {
@@ -216,7 +214,7 @@ public class EventService {
         return toResponse(eventRepository.save(event), Optional.empty());
     }
 
-    public Page<EventResponse> getEvents(EventFilterRequest filter, @Nullable Long currentUserId) {
+    public Page<EventResponse> getEvents(EventFilterRequest filter, Long currentUserId) {
         Specification<Event> spec = buildSpecification(filter, currentUserId);
 
         PageRequest pageable = PageRequest.of(
@@ -229,7 +227,7 @@ public class EventService {
                 .map(event -> toResponse(event, Optional.ofNullable(currentUserId)));
     }
 
-    public EventResponse getEventById(Long eventId, @Nullable Long currentUserId) {
+    public EventResponse getEventById(Long eventId,  Long currentUserId) {
         Event event = getEventOrThrow(eventId);
         return toResponse(event, Optional.ofNullable(currentUserId));
     }
@@ -545,7 +543,7 @@ public class EventService {
         }
     }
 
-    private Specification<Event> buildSpecification(EventFilterRequest filter, @Nullable Long currentUserId) {
+    private Specification<Event> buildSpecification(EventFilterRequest filter,  Long currentUserId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now();

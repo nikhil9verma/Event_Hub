@@ -2,7 +2,6 @@ package com.eventhub.eventhub_backend.security;
 
 
 import com.eventhub.eventhub_backend.entity.User;
-import com.eventhub.eventhub_backend.exception.ResourceNotFoundException;
 import com.eventhub.eventhub_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

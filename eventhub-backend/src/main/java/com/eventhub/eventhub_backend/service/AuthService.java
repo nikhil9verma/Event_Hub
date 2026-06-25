@@ -421,10 +421,7 @@ public class AuthService {
 
     @Transactional
     public String initiateForgotPassword(String email) {
-        // Only send OTP if user actually exists in the main users table
-        User user = userRepository.findByEmailAndDeletedFalse(email)
-                .orElseThrow(() -> new ResourceNotFoundException("No account found with this email"));
-
+        
         // Restore random 6-digit OTP generation
         String otp = String.format("%06d", new Random().nextInt(999999));
 

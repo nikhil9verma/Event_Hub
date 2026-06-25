@@ -3,18 +3,14 @@ package com.eventhub.eventhub_backend.controller;
 
 import com.eventhub.eventhub_backend.dto.response.ApiResponse;
 import com.eventhub.eventhub_backend.dto.response.NotificationResponse;
-import com.eventhub.eventhub_backend.dto.response.RegistrationResponse;
+
 import com.eventhub.eventhub_backend.service.NotificationService;
-import com.eventhub.eventhub_backend.repository.RegistrationRepository;
-import com.eventhub.eventhub_backend.service.EventService;
+
 import com.eventhub.eventhub_backend.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Security;
 
 @RestController
 @RequestMapping("/notifications")
