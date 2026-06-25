@@ -140,6 +140,17 @@ export default function ProfilePage() {
     }
   })
 
+  const applyHostMutation = useMutation({
+    mutationFn: () => authApi.applyForHost(),
+    onSuccess: (res) => {
+      toast.success(res.data.message || 'Host request submitted successfully!')
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to submit request')
+    }
+  })
+
   if (isLoading) return <div className="page-container py-12"><div className="skeleton h-64 rounded-2xl" /></div>
 
   return (
@@ -267,6 +278,23 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* BECOME A HOST SECTION (Only for STUDENT role) */}
+      {profile?.role === 'STUDENT' && (
+        <div className="mt-6 bg-white rounded-2xl border border-ink-900/5 shadow-sm p-6 md:p-8">
+          <h3 className="text-lg font-serif text-ink-900 mb-2">Request Host Privileges</h3>
+          <p className="text-sm text-ink-500 font-sans mb-4">
+            Want to create, manage, and track attendees for campus events? Request to upgrade your account to a Host. A platform administrator will review your application.
+          </p>
+          <button 
+            onClick={() => applyHostMutation.mutate()}
+            disabled={applyHostMutation.isPending}
+            className="btn-gold py-3 px-6 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+          >
+            {applyHostMutation.isPending ? 'Submitting Request...' : '✨ Apply for Host Role'}
+          </button>
+        </div>
+      )}
 
       <EmailChangeModal 
         isOpen={isEmailModalOpen} 
