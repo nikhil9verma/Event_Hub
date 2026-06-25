@@ -168,7 +168,27 @@ export default function CreateEventPage() {
         <h1 className="font-serif text-3xl text-ink-900">{isEditing ? 'Edit Event' : 'Create New Event'}</h1>
       </div>
 
-      <form onSubmit={handleSubmit((data) => createMutation.mutate(data), () => toast.error('Please fix errors in the form.'))} className="space-y-6">
+      <form onSubmit={handleSubmit((data) => {
+        if (!isEditing && !posterFile) {
+          toast.error("Please upload a hero image/poster for the event.");
+          return;
+        }
+        if (!isEditing && !cardFile) {
+          toast.error("Please upload a card preview image for the event.");
+          return;
+        }
+        createMutation.mutate(data);
+      }, (formErrors) => {
+        console.error("Form validation errors:", formErrors);
+        const errorKeys = Object.keys(formErrors) as Array<keyof typeof formErrors>;
+        if (errorKeys.length > 0) {
+          const firstErrorField = errorKeys[0];
+          const errorMsg = formErrors[firstErrorField]?.message || 'Please fix the highlighted fields.';
+          toast.error(`Form Error: ${errorMsg}`);
+        } else {
+          toast.error('Please fix validation errors in the form.');
+        }
+      })} className="space-y-6">
         
         {/* Images */}
         <div className="card p-5 space-y-5">

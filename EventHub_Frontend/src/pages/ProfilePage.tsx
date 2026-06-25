@@ -134,7 +134,9 @@ export default function ProfilePage() {
   // ─── FIX 4: Correctly pass the File directly to uploadAvatar ───
   const avatarMutation = useMutation({
     mutationFn: (file: File) => authApi.uploadAvatar(file),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const newUrl = res.data.data
+      useAuthStore.getState().updateUser({ profileImageUrl: newUrl })
       queryClient.invalidateQueries({ queryKey: ['profile'] })
       toast.success('Avatar updated!')
     }
