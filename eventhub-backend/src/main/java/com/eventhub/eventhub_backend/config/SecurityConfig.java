@@ -1,7 +1,6 @@
 package com.eventhub.eventhub_backend.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 import com.eventhub.eventhub_backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -61,10 +60,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers("/uploads/**");
-    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
