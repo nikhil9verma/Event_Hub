@@ -275,10 +275,10 @@ export default function CreateEventPage() {
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-ink-900/5 pb-3">
             <h2 className="font-serif text-lg text-ink-900">Logistics</h2>
-            <label className="relative inline-flex items-center cursor-pointer gap-3">
+            <label className="inline-flex items-center cursor-pointer gap-3">
               <span className="text-sm font-bold text-ink-600">Requires Registration</span>
               <input type="checkbox" checked={requiresRegistration} onChange={e => setRequiresRegistration(e.target.checked)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-ink-900/20 rounded-full peer-checked:bg-gold transition-all after:content-[''] after:absolute after:top-[2px] after:right-[42px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-[20px]"></div>
+              <div className="relative w-11 h-6 bg-ink-900/20 rounded-full peer-checked:bg-gold transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
             </label>
           </div>
 
