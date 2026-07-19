@@ -173,6 +173,11 @@ public class EventService {
         event.setVenue(request.getVenue());
         event.setCategory(request.getCategory());
         event.setMaxParticipants(request.getMaxParticipants());
+
+        if (request.getRegistrationDeadline() != null && event.getRegistrationDeadline() != null &&
+                request.getRegistrationDeadline().isAfter(event.getRegistrationDeadline())) {
+            event.setDeadlineProcessed(false);
+        }
         event.setRegistrationDeadline(request.getRegistrationDeadline());
         // Reset reminderSent flag if host changed reminderHours so the new reminder fires
         if (!java.util.Objects.equals(request.getReminderHours(), event.getReminderHours())) {
@@ -207,6 +212,7 @@ public class EventService {
             event.getStages().addAll(newStages);
         }
 
+        promoteWaitlistForEvent(event);
         updateEventStatus(event);
         return toResponse(eventRepository.save(event), Optional.empty());
     }

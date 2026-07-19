@@ -45,12 +45,12 @@ public class EventScheduler {
             // Example: If event is 5:00 PM and reminderHours is 2, target is 3:00 PM
             LocalDateTime targetReminderTime = event.getEventDate().minusHours(event.getReminderHours());
 
-            /* LOGIC: If 'now' is past the target time, and it's not too late
-               (e.g., within 30 mins of the target), send the email.
-               NOTE: Adding a 'boolean reminderSent' to your Event entity is highly recommended
-               to prevent duplicate emails if the scheduler runs multiple times.
+            /* LOGIC: If 'now' is past the target time, send the email.
+               The 'isReminderSent()' check guarantees we don't send duplicates,
+               so we don't need a strict 30-minute window (which would cause missed 
+               reminders if the server restarts or sleeps during that window).
             */
-            if (!event.isReminderSent() && now.isAfter(targetReminderTime) && now.isBefore(targetReminderTime.plusMinutes(30))) {
+            if (!event.isReminderSent() && now.isAfter(targetReminderTime)) {
                 sendRemindersForEvent(event);
                 event.setReminderSent(true);
                 eventRepository.save(event);

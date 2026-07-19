@@ -73,18 +73,6 @@ public class EventDeadlineScheduler {
 
             // 4. Promote Waitlist for the event now that invalid teams are cleared
             eventService.promoteWaitlistForEvent(event);
-            
-            // 5. Send final confirmation emails
-            List<Registration> registered = registrationRepository.findByEventIdAndStatus(event.getId(), RegistrationStatus.REGISTERED);
-            for (Registration reg : registered) {
-                emailService.sendRegistrationConfirmation(reg.getUser(), event);
-            }
-            
-            List<Registration> waitlisted = registrationRepository.findByEventIdAndStatus(event.getId(), RegistrationStatus.WAITLIST);
-            for (Registration reg : waitlisted) {
-                emailService.sendWaitlistConfirmation(reg.getUser(), event); 
-            }
-
             event.setDeadlineProcessed(true);
             eventRepository.save(event);
             log.info("Finished processing deadline for event: {}", event.getTitle());
