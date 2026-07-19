@@ -132,12 +132,12 @@ public class EventService {
                         .status(reg.getStatus())
                         .registeredAt(reg.getRegisteredAt())
                         .teamName(reg.getTeamName())
-                        .teammates(reg.getTeamMembers().stream()
+                        .teammates(reg.getTeamMembers() != null ? reg.getTeamMembers().stream()
                                 .map(tm -> AttendeeResponse.TeamMemberResponse.builder()
                                         .name(tm.getName())
                                         .email(tm.getEmail())
                                         .build())
-                                .toList())
+                                .toList() : List.of())
                         .build())
                 .toList();
     }
