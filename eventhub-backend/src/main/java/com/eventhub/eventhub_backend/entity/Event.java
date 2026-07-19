@@ -69,15 +69,27 @@ public class Event {
     private User host;
     @Column(name = "requires_registration")
     @Builder.Default
-    private boolean requiresRegistration = true;
+    private Boolean requiresRegistration = true;
     
     @Column(name = "deadline_processed")
     @Builder.Default
-    private boolean deadlineProcessed = false;
+    private Boolean deadlineProcessed = false;
 
     @Column(name = "reminder_sent")
     @Builder.Default
-    private boolean reminderSent = false;
+    private Boolean reminderSent = false;
+
+    public boolean isRequiresRegistration() {
+        return requiresRegistration == null || requiresRegistration;
+    }
+
+    public boolean isDeadlineProcessed() {
+        return Boolean.TRUE.equals(deadlineProcessed);
+    }
+
+    public boolean isReminderSent() {
+        return Boolean.TRUE.equals(reminderSent);
+    }
 
     // ─── NEW FLEXIBLE FIELDS ───
     @Column(name = "min_team_size")
