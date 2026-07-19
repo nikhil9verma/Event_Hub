@@ -288,13 +288,36 @@ export default function ProfilePage() {
           <p className="text-sm text-ink-500 font-sans mb-4">
             Want to create, manage, and track attendees for campus events? Request to upgrade your account to a Host. A platform administrator will review your application.
           </p>
-          <button 
-            onClick={() => applyHostMutation.mutate()}
-            disabled={applyHostMutation.isPending}
-            className="btn-gold py-3 px-6 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
-          >
-            {applyHostMutation.isPending ? 'Submitting Request...' : '✨ Apply for Host Role'}
-          </button>
+          {profile?.hostRequestStatus === 'PENDING' ? (
+            <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-xl text-sm font-semibold">
+              <span>⏳</span>
+              Host Request Pending — Awaiting Admin Review
+            </div>
+          ) : profile?.hostRequestStatus === 'REJECTED' ? (
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-xl text-sm font-semibold">
+                <span>❌</span>
+                Previous request was rejected
+              </div>
+              <div>
+                <button 
+                  onClick={() => applyHostMutation.mutate()}
+                  disabled={applyHostMutation.isPending}
+                  className="btn-gold py-3 px-6 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+                >
+                  {applyHostMutation.isPending ? 'Submitting Request...' : '✨ Reapply for Host Role'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={() => applyHostMutation.mutate()}
+              disabled={applyHostMutation.isPending}
+              className="btn-gold py-3 px-6 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+            >
+              {applyHostMutation.isPending ? 'Submitting Request...' : '✨ Apply for Host Role'}
+            </button>
+          )}
         </div>
       )}
 

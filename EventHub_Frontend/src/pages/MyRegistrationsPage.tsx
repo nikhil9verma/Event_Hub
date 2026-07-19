@@ -31,7 +31,8 @@ export default function MyRegistrationsPage() {
 
   const activeRegistrations = safeEvents.filter((item: any) => {
     const eventData = item.event || item;
-    return eventData.currentUserRegistrationStatus !== 'PENDING_INVITATION';
+    const status = eventData.currentUserRegistrationStatus;
+    return status !== 'PENDING_INVITATION' && status !== 'CANCELLED';
   });
 
   const showEmptyState = isError || (!isLoading && safeEvents.length === 0);

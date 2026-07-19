@@ -90,6 +90,15 @@ public class EmailService {
         sendHtmlEmail(user.getEmail(), subject, htmlBody);
     }
 
+    @Async("emailTaskExecutor")
+    public void sendCancellationEmail(User user, Event event, String reason) {
+        sendHtmlEmail(user.getEmail(),
+                "Registration Cancelled: " + event.getTitle(),
+                "<p>Hi " + user.getName() + ",</p>" +
+                        "<p>Your registration for <b>" + event.getTitle() + "</b> has been cancelled.</p>" +
+                        "<p>Reason: " + reason + "</p>");
+    }
+
     // ─── TEAM & BULK EMAILS ─────────────────────────────────────────────────────
 
     @Async("emailTaskExecutor")

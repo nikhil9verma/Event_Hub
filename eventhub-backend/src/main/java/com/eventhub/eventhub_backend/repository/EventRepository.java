@@ -10,10 +10,17 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecificationExecutor<Event> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Event e WHERE e.id = :id")
+    Optional<Event> findByIdWithLock(@Param("id") Long id);
 
     @Query("""
                 SELECT e FROM Event e WHERE e.status = :status AND e.eventDate >= :now
@@ -28,6 +35,9 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
                 ORDER BY e.createdAt DESC
             """)
     Page<Event> findByHostId(@Param("hostId") Long hostId, Pageable pageable);
+
+    @Query("SELECT e FROM Event e WHERE e.host.id = :hostId AND e.status != com.eventhub.eventhub_backend.enums.EventStatus.SUSPENDED ORDER BY e.createdAt DESC")
+    Page<Event> findActiveByHostId(@Param("hostId") Long hostId, Pageable pageable);
 
     @Query("""
                 SELECT e FROM Event e
@@ -44,6 +54,8 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     List<Event> findExpiredActiveEvents(@Param("now") LocalDateTime now);
 
     List<Event> findByHostIdAndStatus(Long hostId, EventStatus status);
+
+    List<Event> findByRegistrationDeadlineBeforeAndDeadlineProcessedFalse(LocalDateTime date);
 
     // Used during account deletion: nullify host FK so the user row can be
     // hard deleted while keeping the SUSPENDED event rows intact for history.

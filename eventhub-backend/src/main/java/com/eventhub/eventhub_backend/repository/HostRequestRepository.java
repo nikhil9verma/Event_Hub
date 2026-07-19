@@ -18,6 +18,8 @@ public interface HostRequestRepository extends JpaRepository<HostRequest, Long> 
 
     boolean existsByUserIdAndStatus(Long userId, HostRequestStatus status);
 
+    Optional<HostRequest> findTopByUserIdOrderByRequestedAtDesc(Long userId);
+
     // Used during account deletion to remove host requests before deleting the user
     // row
     @Modifying

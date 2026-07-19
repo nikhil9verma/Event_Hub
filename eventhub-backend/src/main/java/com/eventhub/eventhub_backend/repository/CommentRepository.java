@@ -10,7 +10,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    Page<Comment> findByEventIdOrderByCreatedAtDesc(Long eventId, Pageable pageable);
+    @Query(value = "SELECT c FROM Comment c JOIN FETCH c.user WHERE c.event.id = :eventId ORDER BY c.createdAt DESC",
+           countQuery = "SELECT COUNT(c) FROM Comment c WHERE c.event.id = :eventId")
+    Page<Comment> findByEventIdOrderByCreatedAtDesc(@Param("eventId") Long eventId, Pageable pageable);
 
     boolean existsByUserIdAndEventId(Long userId, Long eventId);
 

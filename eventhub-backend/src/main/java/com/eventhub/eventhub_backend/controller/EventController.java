@@ -76,8 +76,8 @@ public class EventController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
-    public ResponseEntity<?> deleteEvent(@PathVariable Long id, Principal principal) {
-        eventService.deleteEvent(id, principal.getName());
+    public ResponseEntity<?> deleteEvent(@PathVariable Long id) {
+        eventService.deleteEvent(id, securityUtils.getCurrentUserId());
         return ResponseEntity.ok().body(Map.of("message", "Event deleted successfully"));
     }
 
@@ -91,6 +91,38 @@ public class EventController {
 
         return ResponseEntity.ok(ApiResponse.success("Registration successful",
                 eventService.registerForEvent(id, securityUtils.getCurrentUserId(), request)));
+    }
+
+    @DeleteMapping("/{id}/register")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> cancelRegistration(@PathVariable Long id) {
+        eventService.cancelRegistration(id, securityUtils.getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success("Registration cancelled successfully", null));
+    }
+
+    @GetMapping(value = "/{id}/attendees/export", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('HOST', 'SUPER_ADMIN')")
+    public ResponseEntity<String> exportAttendees(@PathVariable Long id) {
+        List<AttendeeResponse> attendees = eventService.getEventAttendees(id, securityUtils.getCurrentUserId());
+        
+        StringBuilder csv = new StringBuilder();
+        csv.append("Name,Email,Course,Batch,Team Name,Status,Registered At\n");
+        
+        for (AttendeeResponse attendee : attendees) {
+            csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                    escapeCsv(attendee.getName()),
+                    escapeCsv(attendee.getEmail()),
+                    escapeCsv(attendee.getCourse()),
+                    escapeCsv(attendee.getBatch()),
+                    escapeCsv(attendee.getTeamName()),
+                    attendee.getStatus() != null ? attendee.getStatus().name() : "",
+                    attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toString() : ""));
+        }
+        
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=attendees_event_" + id + ".csv");
+        
+        return new ResponseEntity<>(csv.toString(), headers, org.springframework.http.HttpStatus.OK);
     }
 
     @PostMapping("/{id}/team/accept")
@@ -166,13 +198,7 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getComments(id, page, size)));
     }
 
-    @PostMapping("/{id}/rating")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<RatingResponse>> rateEvent(
-            @PathVariable Long id, @Valid @RequestBody FeedbackRequests.RatingRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Rating submitted",
-                feedbackService.addOrUpdateRating(id, securityUtils.getCurrentUserId(), request)));
-    }
+    
 
     private Long tryGetUserId() {
         try {
@@ -180,5 +206,10 @@ public class EventController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        return value.replace("\"", "\"\"");
     }
 }

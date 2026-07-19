@@ -14,7 +14,7 @@
 - 🎫 **Register & Track** — Solo, team, and crowd-event registration flows
 - ⏳ **Waitlist System** — Auto-promoted when seats open
 - 🔔 **Email Notifications** — Registration confirmations and event reminders via Resend
-- ⭐ **Ratings & Comments** — Review events you've attended
+- ⭐ **Comments** — Review events you've attended
 - 👤 **Profile Management** — Course, batch, profile photo (Cloudinary)
 
 ### For Event Hosts
@@ -65,7 +65,7 @@ Event_Hub/
         ├── entity/             # JPA entities
         │   ├── User, Event, Registration
         │   ├── EventStage, TeamMember
-        │   ├── Comment, Rating, Notification
+        │   ├── Comment, Notification
         │   └── HostRequest, VerificationToken
         ├── repository/         # Spring Data JPA
         ├── security/           # JWT auth + Spring Security
@@ -112,7 +112,18 @@ Event_Hub/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Deploy with Docker (Recommended)
+You can easily spin up both the frontend and backend using Docker Compose.
+
+```bash
+docker-compose up --build
+```
+- **Frontend**: http://localhost
+- **Backend**: http://localhost:5000/api
+
+---
+
+### Manual Prerequisites
 - Node.js 18+ & npm
 - Java 21 + Maven 3.9+
 - PostgreSQL (or a [Neon](https://neon.tech) database)

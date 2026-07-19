@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 @RestController
 @RequestMapping("/registrations")
@@ -21,14 +22,9 @@ public class RegistrationController {
     private final SecurityUtils securityUtils;
 
     @GetMapping("/my")
-    public ResponseEntity<ApiResponse<Page<EventResponse>>> getMyRegistrations(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Long currentUserId = securityUtils.getCurrentUserId();
-
+    public ResponseEntity<ApiResponse<List<EventResponse>>> getMyRegistrations() {
         return ResponseEntity.ok(ApiResponse.success(
-                eventService.getMyRegistrations(currentUserId, page, size)
+                eventService.getMyRegistrations(securityUtils.getCurrentUserId())
         ));
     }
 }

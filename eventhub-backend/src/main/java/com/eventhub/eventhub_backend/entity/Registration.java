@@ -11,7 +11,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "registrations",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "event_id"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "event_id"}),
+        indexes = {
+            @Index(name = "idx_reg_event_team", columnList = "event_id, teamName"),
+            @Index(name = "idx_reg_user_status", columnList = "user_id, status")
+        })
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Registration {
 

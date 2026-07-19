@@ -41,6 +41,10 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
         Optional<Registration> findByUserAndEvent(@Param("userId") Long userId,
                         @Param("eventId") Long eventId);
 
+        @Query("SELECT COUNT(DISTINCT r.teamName) + COUNT(CASE WHEN (r.teamName IS NULL OR r.teamName = '') THEN 1 END) " +
+           "FROM Registration r WHERE r.event.id = :eventId AND r.status = 'REGISTERED'")
+        long countOccupiedSlotsByEventId(@Param("eventId") Long eventId);
+
         @Query("SELECT r FROM Registration r WHERE r.user.id = :userId AND r.status = :status")
         List<Registration> findByUserIdAndStatus(@Param("userId") Long userId,
                         @Param("status") RegistrationStatus status);
@@ -62,6 +66,9 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
         List<Registration> findByEventIdAndTeamName(Long eventId, String teamName);
 
         Page<Registration> findByUserIdOrderByRegisteredAtDesc(Long userId, Pageable pageable);
+
+        @Query("SELECT r FROM Registration r JOIN FETCH r.event WHERE r.user.id = :userId ORDER BY r.registeredAt DESC")
+        List<Registration> findAllByUserIdOrderByRegisteredAtDesc(@Param("userId") Long userId);
 
         // Add this anywhere inside RegistrationRepository
         boolean existsByEventIdAndTeamName(Long eventId, String teamName);

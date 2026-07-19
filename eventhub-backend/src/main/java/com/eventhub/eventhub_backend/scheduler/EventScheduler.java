@@ -5,6 +5,7 @@ import com.eventhub.eventhub_backend.entity.Registration;
 import com.eventhub.eventhub_backend.enums.RegistrationStatus;
 import com.eventhub.eventhub_backend.repository.EventRepository;
 import com.eventhub.eventhub_backend.repository.RegistrationRepository;
+import com.eventhub.eventhub_backend.repository.NotificationRepository;
 import com.eventhub.eventhub_backend.service.EmailService;
 import com.eventhub.eventhub_backend.service.EventService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class EventScheduler {
     private final RegistrationRepository registrationRepository;
     private final EmailService emailService;
     private final EventService eventService;
+    private final NotificationRepository notificationRepository;
 
     // Set 'app.scheduled.reminder-cron=0 * * * * *' in application.properties for 1-minute testing
     @Scheduled(cron = "${app.scheduled.reminder-cron}")
@@ -48,10 +50,10 @@ public class EventScheduler {
                NOTE: Adding a 'boolean reminderSent' to your Event entity is highly recommended
                to prevent duplicate emails if the scheduler runs multiple times.
             */
-            if (now.isAfter(targetReminderTime) && now.isBefore(targetReminderTime.plusMinutes(30))) {
-                // To prevent spamming every minute during testing,
-                // you could check a flag here: if (!event.isReminderSent()) { ... }
+            if (!event.isReminderSent() && now.isAfter(targetReminderTime) && now.isBefore(targetReminderTime.plusMinutes(30))) {
                 sendRemindersForEvent(event);
+                event.setReminderSent(true);
+                eventRepository.save(event);
             }
         }
     }
@@ -81,5 +83,12 @@ public class EventScheduler {
     public void markCompletedEvents() {
         log.info("System Task: Updating expired events to COMPLETED status");
         eventService.markExpiredEventsCompleted();
+    }
+
+    @Scheduled(cron = "0 0 3 * * *")
+    public void cleanupOldNotifications() {
+        log.info("System Task: Cleaning up notifications older than 90 days");
+        LocalDateTime threshold = LocalDateTime.now().minusDays(90);
+        notificationRepository.deleteOlderThan(threshold);
     }
 }

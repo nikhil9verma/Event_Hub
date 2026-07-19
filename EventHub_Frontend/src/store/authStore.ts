@@ -14,6 +14,7 @@ interface AuthState {
     profileImageUrl?: string;
   } | null;
   isAuthenticated: boolean;
+  setToken: (token: string) => void;
   setAuth: (data: AuthResponse) => void;
   updateUser: (data: Partial<AuthState['user']>) => void;
   logout: () => void;
@@ -25,6 +26,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       isAuthenticated: false,
+
+      setToken: (token: string) => set({ token }),
 
       setAuth: (data: AuthResponse) =>
         set({

@@ -2,6 +2,7 @@ package com.eventhub.eventhub_backend.dto.request;
 
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -40,10 +41,13 @@ public class EventRequest {
     private LocalDateTime registrationDeadline;
 
     @Min(value = 1, message = "Reminder hours must be at least 1")
+    @Max(value = 24, message = "Reminder hours cannot exceed 24")
     private Integer reminderHours;
 
     // ─── NEW FLEXIBLE FIELDS ───
+    @Min(1)
     private Integer minTeamSize;
+    @Min(1)
     private Integer maxTeamSize;
     private String contactEmail;
     private String prizes;

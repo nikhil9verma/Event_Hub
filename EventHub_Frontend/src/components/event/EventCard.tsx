@@ -86,13 +86,6 @@ export default function EventCard({ event, featured }: { event: Event; featured?
           {format(new Date(event.eventDate), 'MMM d')}
         </div>
 
-        {/* Trending badge */}
-        {event.trending && !isCompleted && !isSuspended && (
-          <div className="absolute bottom-2.5 left-2.5 px-2 py-0.5 bg-gold text-ink-900 rounded-full text-[10px] font-bold font-sans shadow-sm">
-            🔥 Trending
-          </div>
-        )}
-
         {/* Completed / Suspended overlay */}
         {(isCompleted || isSuspended) && (
           <div className="absolute inset-0 bg-ink-900/50 backdrop-blur-[2px] flex items-center justify-center z-10">

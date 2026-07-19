@@ -13,7 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "events")
+@Table(name = "events", indexes = {
+    @Index(name = "idx_event_status_date", columnList = "status, eventDate"),
+    @Index(name = "idx_event_host", columnList = "host_id")
+})
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Event {
 
@@ -67,6 +70,15 @@ public class Event {
     @Column(name = "requires_registration")
     @Builder.Default
     private boolean requiresRegistration = true;
+    
+    @Column(name = "deadline_processed")
+    @Builder.Default
+    private boolean deadlineProcessed = false;
+
+    @Column(name = "reminder_sent")
+    @Builder.Default
+    private boolean reminderSent = false;
+
     // ─── NEW FLEXIBLE FIELDS ───
     @Column(name = "min_team_size")
     @Builder.Default
@@ -94,10 +106,6 @@ public class Event {
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
 
-    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<Rating> ratings = new ArrayList<>();
-
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -114,10 +122,6 @@ public class Event {
         return registrations.stream()
                 .filter(r -> r.getStatus() == RegistrationStatus.WAITLIST)
                 .count();
-    }
-
-    public boolean isTrending() {
-        return getRegistrationCount() > 50;
     }
 
     public int getAvailableSeats() {

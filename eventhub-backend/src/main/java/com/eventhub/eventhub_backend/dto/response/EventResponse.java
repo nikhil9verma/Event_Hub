@@ -31,10 +31,7 @@ public class EventResponse {
     private long registrationCount;
     private long waitlistCount;
     private int availableSeats;
-    private boolean trending;
 
-    private Double averageRating;
-    private long ratingCount;
     private boolean requiresRegistration;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

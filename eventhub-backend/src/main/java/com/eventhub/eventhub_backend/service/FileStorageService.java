@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.List;
 
 @Service
 public class FileStorageService {
@@ -29,6 +30,10 @@ public class FileStorageService {
     }
 
     public String storeFile(MultipartFile file, String folderName) {
+        List<String> allowedTypes = List.of("image/jpeg", "image/png", "image/webp");
+        if (!allowedTypes.contains(file.getContentType())) {
+            throw new BusinessException("Only JPG, PNG and WEBP images are allowed");
+        }
         try {
             // Uploads to a specific folder in Cloudinary (e.g., eventhub/avatars)
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
@@ -42,12 +47,14 @@ public class FileStorageService {
     }
 
     public void deleteFile(String fileUrl) {
+        if (fileUrl == null || fileUrl.trim().isEmpty()) return;
         try {
             // Extracts the public ID from the URL so Cloudinary knows which file to delete
             String[] parts = fileUrl.split("/");
             String publicIdWithExtension = parts[parts.length - 1];
             String folderPath = parts[parts.length - 3] + "/" + parts[parts.length - 2];
-            String publicId = folderPath + "/" + publicIdWithExtension.substring(0, publicIdWithExtension.lastIndexOf('.'));
+            int lastDotIndex = publicIdWithExtension.lastIndexOf('.');
+            String publicId = folderPath + "/" + (lastDotIndex != -1 ? publicIdWithExtension.substring(0, lastDotIndex) : publicIdWithExtension);
 
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         } catch (Exception e) {

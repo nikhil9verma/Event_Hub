@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { eventsApi } from '../api/Endpoints'
 import { useAuthStore } from '../store/authStore'
@@ -10,28 +10,6 @@ import type { Event } from '../types'
 import TeamRegistrationModal from '../components/event/TeamRegistrationModal'
 import AddTeammateModal from '../components/event/AddTeammateModal'
 
-function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
-  const [hover, setHover] = useState(0)
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map(star => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onChange?.(star)}
-          onMouseEnter={() => setHover(star)}
-          onMouseLeave={() => setHover(0)}
-          className={`text-2xl transition-transform hover:scale-110 ${
-            star <= (hover || value) ? 'text-gold' : 'text-ink-900/20'
-          } ${onChange ? 'cursor-pointer' : 'cursor-default'}`}
-          disabled={!onChange}
-        >
-          ★
-        </button>
-      ))}
-    </div>
-  )
-}
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -39,22 +17,57 @@ export default function EventDetailPage() {
   const { isAuthenticated, user } = useAuthStore()
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
-  const [rating, setRating] = useState(0)
 
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false)
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
 
-  const { data: event, isLoading } = useQuery<Event>({
+  const { data: event, isLoading, isError } = useQuery<Event>({
     queryKey: ['event', Number(id)],
     queryFn: () => eventsApi.getEvent(Number(id)).then((r: any) => r.data.data ?? null),
     refetchInterval: 30000,
   })
 
-  const { data: commentsData } = useQuery({
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  const { 
+    data: commentsData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useInfiniteQuery({
     queryKey: ['comments', Number(id)],
-    queryFn: () => eventsApi.getComments(Number(id)).then((r: any) => r.data.data ?? null),
+    queryFn: ({ pageParam = 0 }) => eventsApi.getComments(Number(id), pageParam, 10).then((r: any) => r.data.data),
+    getNextPageParam: (lastPage: any) => {
+      if (lastPage.pageable.pageNumber + 1 < lastPage.totalPages) {
+        return lastPage.pageable.pageNumber + 1
+      }
+      return undefined
+    },
+    initialPageParam: 0,
     enabled: !!id,
   })
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentRef = loadMoreRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) observer.unobserve(currentRef)
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const allComments = commentsData?.pages.flatMap(page => page.content) || []
 
   // ─── STATUS CHECKS ───
   const isCrowdEvent = event?.requiresRegistration === false;
@@ -63,6 +76,7 @@ export default function EventDetailPage() {
   const isWaitlisted = event?.currentUserRegistrationStatus === 'WAITLIST'
   const isPendingInvite = event?.currentUserRegistrationStatus === 'PENDING_INVITATION'
   const isIncomplete = event?.currentUserRegistrationStatus === 'INCOMPLETE'
+  const isCancelled = event?.currentUserRegistrationStatus === 'CANCELLED'
   
   const isPastDeadline = event ? new Date() > new Date(event.registrationDeadline) : false
   const isCompleted = event?.status === 'COMPLETED'
@@ -93,6 +107,31 @@ export default function EventDetailPage() {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Registration failed'),
   })
+
+  const cancelMutation = useMutation({
+    mutationFn: () => eventsApi.cancelRegistration(Number(id)),
+    onSuccess: () => {
+      toast.success('Registration cancelled')
+      queryClient.invalidateQueries({ queryKey: ['event', Number(id)] })
+      if (isTeamEvent) queryClient.invalidateQueries({ queryKey: ['event-team', Number(id)] })
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to cancel'),
+  })
+
+  const handleExportAttendees = async () => {
+    try {
+      const response = await eventsApi.exportAttendees(Number(id));
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `attendees_event_${id}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err: any) {
+      toast.error('Failed to export attendees');
+    }
+  }
 
   const acceptMutation = useMutation({
     mutationFn: () => eventsApi.acceptInvite(Number(id)),
@@ -126,12 +165,21 @@ export default function EventDetailPage() {
 
   const commentMutation = useMutation({
     mutationFn: () => eventsApi.addComment(Number(id), comment),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['comments', Number(id)] })
+      const savedComment = comment
       setComment('')
+      return { savedComment }
+    },
+    onSuccess: () => {
       toast.success('Comment posted!')
       queryClient.invalidateQueries({ queryKey: ['comments', Number(id)] })
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err: any, _variables: any, context: any) => {
+      setComment(context?.savedComment || '')
+      toast.error(err.response?.data?.message || 'Failed to post comment')
+      queryClient.invalidateQueries({ queryKey: ['comments', Number(id)] })
+    },
   })
 
   const deleteMutation = useMutation({
@@ -145,7 +193,14 @@ export default function EventDetailPage() {
   })
 
   if (isLoading) return <div className="page-container py-12"><div className="skeleton h-80 rounded-2xl" /></div>
-  if (!event) return null
+  if (isError || !event) return (
+    <div className="page-container py-20 text-center">
+      <span className="text-5xl block mb-4">😕</span>
+      <h2 className="font-serif text-2xl text-ink-900 mb-2">Event Not Found</h2>
+      <p className="text-ink-600 text-sm mb-6">This event may have been removed or the link is incorrect.</p>
+      <Link to="/" className="btn-primary">← Back to Events</Link>
+    </div>
+  )
 
   const handleRegisterClick = () => {
     if (isTeamEvent) {
@@ -263,7 +318,7 @@ export default function EventDetailPage() {
                 </p>
               )}
                <div className="space-y-4">
-                {commentsData?.content?.map((c: any) => (
+                {allComments.map((c: any) => (
                   <div key={c.id} className="flex gap-3 pb-4 border-b border-ink-900/5 last:border-0">
                     <div className="w-8 h-8 bg-ink-900 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-gold text-xs font-serif font-bold">{c.userName[0]?.toUpperCase()}</span>
@@ -277,7 +332,12 @@ export default function EventDetailPage() {
                     </div>
                   </div>
                 ))}
-                {commentsData?.content?.length === 0 && <p className="text-ink-600/40 text-sm italic">No messages yet.</p>}
+                {allComments.length === 0 && !isFetchingNextPage && <p className="text-ink-600/40 text-sm italic">No messages yet.</p>}
+                
+                {/* Intersection Observer target */}
+                <div ref={loadMoreRef} className="h-4 w-full flex items-center justify-center">
+                  {isFetchingNextPage && <span className="text-xs text-ink-500">Loading more...</span>}
+                </div>
               </div>
             </div>
           </div>
@@ -301,6 +361,7 @@ export default function EventDetailPage() {
                   </div>
                   <p className="text-xs text-ink-600/60 text-center">
                     {event.registrationCount}/{event.maxParticipants} {isTeamEvent ? 'Teams' : 'Registered'}
+                    {event.waitlistCount > 0 && ` • ${event.waitlistCount} on Waitlist`}
                   </p>
                 </div>
               )}
@@ -412,6 +473,30 @@ export default function EventDetailPage() {
                       )}
                     </div>
                   )}
+                  {canRegister && !isPendingInvite && (
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to cancel your registration? This cannot be undone.')) {
+                          cancelMutation.mutate()
+                        }
+                      }}
+                      disabled={cancelMutation.isPending}
+                      className="w-full mt-5 py-2.5 border border-red-200 text-red-600 bg-white rounded-lg text-sm font-bold hover:bg-red-50 transition-colors shadow-sm"
+                    >
+                      {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Registration'}
+                    </button>
+                  )}
+                </div>
+              ) : isCancelled && canRegister ? (
+                <div className="text-center">
+                  <p className="text-xs text-ink-600/50 mb-3 italic">You previously cancelled your registration.</p>
+                  <button 
+                    onClick={handleRegisterClick} 
+                    disabled={registerMutation.isPending}
+                    className="btn-gold w-full py-3 rounded-xl shadow-sm text-ink-900 font-bold flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5"
+                  >
+                    {registerMutation.isPending ? 'Processing...' : isTeamEvent ? 'Re-register Team' : 'Re-register'}
+                  </button>
                 </div>
               ) : !canRegister ? (
                 <button disabled className="w-full py-3 bg-ink-100 text-ink-500 rounded-xl font-bold cursor-not-allowed">
@@ -437,6 +522,7 @@ export default function EventDetailPage() {
               {isHost && (
                 <div className="border-t border-ink-900/8 pt-4 mt-4 space-y-3">
                   <Link to={`/events/${event.id}/edit`} className="w-full py-3 rounded-xl border border-ink-900/10 bg-ink-50/50 text-ink-900 hover:bg-ink-100 transition-colors font-medium text-sm flex items-center justify-center gap-2">✏️ Edit Event Details</Link>
+                  <button onClick={handleExportAttendees} className="w-full py-3 rounded-xl border border-sage/20 bg-sage/5 text-sage hover:bg-sage/10 transition-colors font-medium text-sm flex items-center justify-center gap-2">📥 Export Attendees (CSV)</button>
                   <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate()} disabled={deleteMutation.isPending} className="w-full py-3 rounded-xl border border-crimson/10 text-crimson hover:bg-crimson/5 font-medium text-sm flex items-center justify-center gap-2">🗑️ Delete Event</button>
                 </div>
               )}

@@ -2,7 +2,7 @@ import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 // const BASE_URL = 'http://localhost:5000/api'  // For development
-const BASE_URL=import.meta.env.VITE_API_BASE_URL 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -18,10 +18,27 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 })
 
 // ─── Response Interceptor (Handles Auth Errors) ───
+let isRefreshing = false
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+  async (error) => {
+    const originalRequest = error.config
+    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry && !isRefreshing) {
+      originalRequest._retry = true
+      isRefreshing = true
+      try {
+        const res = await api.post('/auth/refresh')
+        const newToken = res.data?.data || res.data?.token
+        if (newToken) {
+          useAuthStore.getState().setToken(newToken)
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+          isRefreshing = false
+          return api(originalRequest)
+        }
+      } catch (_refreshErr) {
+        // Refresh failed - fall through to logout
+      }
+      isRefreshing = false
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }
@@ -134,6 +151,12 @@ export const eventsApi = {
   register: (id: number, data?: any) =>
     api.post(`/events/${id}/register`, data),
 
+  cancelRegistration: (id: number) =>
+    api.delete(`/events/${id}/register`),
+
+  exportAttendees: (id: number) =>
+    api.get(`/events/${id}/attendees/export`, { responseType: 'blob' }),
+
   getMyRegistrations: (page: number = 0) =>
     api.get('/registrations/my', { params: { page, size: 10 } }),
 
@@ -142,9 +165,6 @@ export const eventsApi = {
 
   addComment: (id: number, message: string) =>
     api.post(`/events/${id}/comments`, { message }),
-
-  rateEvent: (id: number, stars: number) =>
-    api.post(`/events/${id}/rating`, { stars }),
 
   getAnalytics: (id: number) =>
     api.get(`/events/${id}/analytics`),

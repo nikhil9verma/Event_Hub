@@ -5,10 +5,10 @@ import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { eventsApi } from '../api/Endpoints'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { getImageUrl } from '../components/event/EventCard'
 
-const schema = z.object({
+const createSchema = (isEditing: boolean) => z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   description: z.string()
     .min(20, 'Description must be at least 20 characters')
@@ -18,8 +18,8 @@ const schema = z.object({
   maxParticipants: z.coerce.number().min(1).max(10000),
   eventDate: z.string().min(1, 'Event date is required'),
   eventEndTime: z.string().min(1, 'End time is required'),
-  registrationDeadline: z.string().min(1, 'Registration deadline is required'),
-  reminderHours: z.coerce.number().min(1).max(72).optional().or(z.literal('')),
+  registrationDeadline: z.string().optional().default(''),
+  reminderHours: z.coerce.number().min(1).max(24).optional().or(z.literal('')),
   
   contactEmail: z.string().email('Please provide a valid email').optional().or(z.literal('')),
   prizes: z.string().optional(),
@@ -34,9 +34,12 @@ const schema = z.object({
     })
   ).optional().default([]),
 })
-.refine((data) => new Date(data.registrationDeadline) < new Date(data.eventDate), {
+.refine((data) => {
+  if (!data.registrationDeadline) return true; // Crowd events don't need deadline
+  return new Date(data.registrationDeadline) < new Date(data.eventDate);
+}, {
   message: "Registration deadline must be before the event date",
-  path: ["registrationDeadline"], 
+  path: ["registrationDeadline"],
 })
 .refine((data) => new Date(data.eventEndTime) > new Date(data.eventDate), {
   message: "End time must be after the start time",
@@ -45,10 +48,14 @@ const schema = z.object({
 .refine((data) => data.maxTeamSize >= data.minTeamSize, {
   message: "Max team size cannot be smaller than min size",
   path: ["maxTeamSize"],
+})
+.refine((data) => isEditing || new Date(data.eventDate) > new Date(), {
+  message: "Event date must be in the future",
+  path: ["eventDate"],
 });
 
-type EventFormInput = z.input<typeof schema>
-type EventForm = z.output<typeof schema>
+type EventFormInput = z.input<ReturnType<typeof createSchema>>
+type EventForm = z.output<ReturnType<typeof createSchema>>
 
 const CATEGORIES = ['Technology', 'Arts & Culture', 'Sports', 'Academic', 'Social', 'Career', 'Health', 'Other']
 
@@ -84,6 +91,8 @@ export default function CreateEventPage() {
     }
   }, [existingEvent])
 
+  const schema = useMemo(() => createSchema(isEditing), [isEditing])
+
   const { register, handleSubmit, control, formState: { errors } } = useForm<EventFormInput, any, EventForm>({
     resolver: zodResolver(schema),
     values: existingEvent ? {
@@ -117,8 +126,9 @@ export default function CreateEventPage() {
       const payload = {
         ...data,
         eventDate: data.eventDate.length === 16 ? data.eventDate + ':00' : data.eventDate,
-        eventEndTime: data.eventEndTime.length === 16 ? data.eventEndTime + ':00' : data.eventEndTime,
-        registrationDeadline: data.registrationDeadline.length === 16 ? data.registrationDeadline + ':00' : data.registrationDeadline,
+        registrationDeadline: !requiresRegistration 
+          ? (data.eventDate.length === 16 ? data.eventDate + ':00' : data.eventDate)
+          : (data.registrationDeadline && data.registrationDeadline.length === 16 ? data.registrationDeadline + ':00' : data.registrationDeadline),
         reminderHours: (enableReminder && data.reminderHours) ? Number(data.reminderHours) : null,
         
         requiresRegistration: requiresRegistration, // Pass the toggle state
@@ -169,10 +179,6 @@ export default function CreateEventPage() {
       </div>
 
       <form onSubmit={handleSubmit((data) => {
-        if (!isEditing && !posterFile) {
-          toast.error("Please upload a hero image/poster for the event.");
-          return;
-        }
         if (!isEditing && !cardFile) {
           toast.error("Please upload a card preview image for the event.");
           return;
@@ -193,31 +199,58 @@ export default function CreateEventPage() {
         {/* Images */}
         <div className="card p-5 space-y-5">
           <h2 className="font-serif text-lg text-ink-900">Event Images</h2>
-          <div>
-            <div onClick={() => posterRef.current?.click()} className="group border-2 border-dashed border-ink-900/15 rounded-xl overflow-hidden cursor-pointer hover:border-gold/50 transition-colors relative">
-              {posterPreview || existingEvent?.posterUrl ? (
-                <>
-                  <div className="absolute inset-x-0 top-0 bg-ink-900/60 py-2 text-center text-white text-xs font-medium z-10 opacity-90 group-hover:bg-ink-900/80 transition-all">Click to change hero image 📷</div>
-                  <img src={posterPreview || getImageUrl(existingEvent?.posterUrl) || ''} alt="Poster" className="w-full h-48 object-cover group-hover:scale-[1.01] transition-transform" />
-                </>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center gap-2 text-ink-600/40">
-                  <span className="text-4xl">🖼</span>
-                  <span className="font-sans text-sm">Click to upload hero image</span>
-                </div>
-              )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            
+            {/* Card Image (Required) */}
+            <div className="space-y-2">
+              <label className="label">Card Image (Required)</label>
+              <p className="text-[10px] text-ink-500 mb-2 leading-tight">This image will appear on the small event cards across the site. Recommended size: 800x600.</p>
+              <div onClick={() => cardRef.current?.click()} className="group border-2 border-dashed border-ink-900/15 rounded-xl overflow-hidden cursor-pointer hover:border-gold/50 transition-colors relative">
+                {cardPreview || existingEvent?.cardImageUrl ? (
+                  <>
+                    <div className="absolute inset-x-0 top-0 bg-ink-900/60 py-2 text-center text-white text-xs font-medium z-10 opacity-90 group-hover:bg-ink-900/80 transition-all">Click to change card image 📷</div>
+                    <img src={cardPreview || getImageUrl(existingEvent?.cardImageUrl) || ''} alt="Card Preview" className="w-full h-32 object-cover group-hover:scale-[1.01] transition-transform" />
+                  </>
+                ) : (
+                  <div className="h-32 flex flex-col items-center justify-center gap-2 text-ink-600/40">
+                    <span className="text-3xl">🖼</span>
+                    <span className="font-sans text-xs">Upload card image</span>
+                  </div>
+                )}
+              </div>
+              <input ref={cardRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setCardFile(file); setCardPreview(URL.createObjectURL(file)) } }} />
             </div>
-            <input ref={posterRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setPosterFile(file); setPosterPreview(URL.createObjectURL(file)) } }} />
+
+            {/* Poster / Hero Image (Optional) */}
+            <div className="space-y-2">
+              <label className="label">Hero Poster (Optional)</label>
+              <p className="text-[10px] text-ink-500 mb-2 leading-tight">This large image appears at the top of the event detail page. Recommended size: 1920x1080.</p>
+              <div onClick={() => posterRef.current?.click()} className="group border-2 border-dashed border-ink-900/15 rounded-xl overflow-hidden cursor-pointer hover:border-gold/50 transition-colors relative">
+                {posterPreview || existingEvent?.posterUrl ? (
+                  <>
+                    <div className="absolute inset-x-0 top-0 bg-ink-900/60 py-2 text-center text-white text-xs font-medium z-10 opacity-90 group-hover:bg-ink-900/80 transition-all">Click to change poster 📷</div>
+                    <img src={posterPreview || getImageUrl(existingEvent?.posterUrl) || ''} alt="Poster" className="w-full h-32 object-cover group-hover:scale-[1.01] transition-transform" />
+                  </>
+                ) : (
+                  <div className="h-32 flex flex-col items-center justify-center gap-2 text-ink-600/40">
+                    <span className="text-3xl">🏞</span>
+                    <span className="font-sans text-xs">Upload hero poster</span>
+                  </div>
+                )}
+              </div>
+              <input ref={posterRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) { setPosterFile(file); setPosterPreview(URL.createObjectURL(file)) } }} />
+            </div>
+
           </div>
         </div>
 
         {/* Details */}
         <div className="card p-5 space-y-4">
           <h2 className="font-serif text-lg text-ink-900">Event Details</h2>
-          <input {...register('title')} className="input-field" placeholder="Event Title" />
+          <input {...register('title')} className="input-field" placeholder="Event Title *" />
           {errors.title && <p className="text-crimson text-xs mt-1">{errors.title.message}</p>}
           
-          <textarea {...register('description')} rows={5} className="input-field resize-none" placeholder="Description" />
+          <textarea {...register('description')} rows={5} className="input-field resize-none" placeholder="Description *" />
           {errors.description && <p className="text-crimson text-xs mt-1">{errors.description.message}</p>}
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -225,7 +258,7 @@ export default function CreateEventPage() {
             {/* ─── FIXED CATEGORY DROPDOWN ─── */}
             <div className="flex flex-col">
               <select {...register('category')} className="input-field cursor-pointer">
-                <option value="">Select Category</option>
+                <option value="">Select Category *</option>
                 {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
@@ -235,7 +268,7 @@ export default function CreateEventPage() {
 
             <input {...register('contactEmail')} type="email" className="input-field" placeholder="Contact Email (Optional)" />
           </div>
-          <input {...register('venue')} className="input-field" placeholder="Venue" />
+          <input {...register('venue')} className="input-field" placeholder="Venue *" />
         </div>
 
         {/* Logistics */}
@@ -251,12 +284,12 @@ export default function CreateEventPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Starts At</label>
+              <label className="label">Starts At *</label>
               <input {...register('eventDate')} type="datetime-local" className="input-field" />
               {errors.eventDate && <p className="text-crimson text-xs mt-1">{errors.eventDate.message}</p>}
             </div>
             <div>
-              <label className="label">Ends At</label>
+              <label className="label">Ends At *</label>
               <input {...register('eventEndTime')} type="datetime-local" className="input-field" />
               {errors.eventEndTime && <p className="text-crimson text-xs mt-1">{errors.eventEndTime.message}</p>}
             </div>
@@ -265,12 +298,12 @@ export default function CreateEventPage() {
           {requiresRegistration && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
               <div>
-                <label className="label">Registration Deadline</label>
+                <label className="label">Registration Deadline *</label>
                 <input {...register('registrationDeadline')} type="datetime-local" className="input-field" />
                 {errors.registrationDeadline && <p className="text-crimson text-xs mt-1">{errors.registrationDeadline.message}</p>}
               </div>
               <div>
-                <label className="label">Max Participants / Teams</label>
+                <label className="label">Max Participants / Teams *</label>
                 <input {...register('maxParticipants')} type="number" className="input-field" />
                 {errors.maxParticipants && <p className="text-crimson text-xs mt-1">{errors.maxParticipants.message}</p>}
               </div>
@@ -291,12 +324,12 @@ export default function CreateEventPage() {
             {isTeamEvent && (
               <div className="grid grid-cols-2 gap-4 pt-3 border-t border-ink-900/5">
                 <div>
-                  <label className="label">Min Team Size</label>
+                  <label className="label">Min Team Size *</label>
                   <input {...register('minTeamSize')} type="number" className="input-field" />
                   {errors.minTeamSize && <p className="text-crimson text-xs mt-1">{errors.minTeamSize.message}</p>}
                 </div>
                 <div>
-                  <label className="label">Max Team Size</label>
+                  <label className="label">Max Team Size *</label>
                   <input {...register('maxTeamSize')} type="number" className="input-field" />
                   {errors.maxTeamSize && <p className="text-crimson text-xs mt-1">{errors.maxTeamSize.message}</p>}
                 </div>
@@ -322,8 +355,11 @@ export default function CreateEventPage() {
               <div key={field.id} className="p-4 border border-ink-900/10 rounded-xl relative bg-ink-50/30">
                 <button type="button" onClick={() => removeStage(index)} className="absolute top-4 right-4 text-crimson font-bold text-sm">✕</button>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input {...register(`stages.${index}.title`)} className="input-field" placeholder="Stage Title" />
-                  <input {...register(`stages.${index}.stageDate`)} type="datetime-local" className="input-field" />
+                  <input {...register(`stages.${index}.title`)} className="input-field" placeholder="Stage Title *" />
+                  <div className="flex flex-col">
+                    <label className="label text-[10px] mb-1">Stage Date & Time *</label>
+                    <input {...register(`stages.${index}.stageDate`)} type="datetime-local" className="input-field" />
+                  </div>
                 </div>
                 <input {...register(`stages.${index}.description`)} className="input-field mt-3" placeholder="Stage Description (Optional)" />
               </div>

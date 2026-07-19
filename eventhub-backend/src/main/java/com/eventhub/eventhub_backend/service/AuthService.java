@@ -4,6 +4,7 @@ import com.eventhub.eventhub_backend.dto.request.AuthRequests;
 import com.eventhub.eventhub_backend.dto.response.AuthResponse;
 import com.eventhub.eventhub_backend.dto.response.HostRequestResponse;
 import com.eventhub.eventhub_backend.dto.response.UserResponse;
+import com.eventhub.eventhub_backend.entity.Event;
 import com.eventhub.eventhub_backend.entity.HostRequest;
 import com.eventhub.eventhub_backend.entity.User;
 import com.eventhub.eventhub_backend.entity.VerificationToken;
@@ -27,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +43,6 @@ public class AuthService {
     private final RegistrationRepository registrationRepository;
     private final NotificationRepository notificationRepository;
     private final CommentRepository commentRepository;
-    private final RatingRepository ratingRepository;
     private final EventService eventService;
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
@@ -57,7 +56,7 @@ public class AuthService {
         }
 
         // Restore random 6-digit OTP generation
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(999999));
         
         // Save to temporary table instead of User table
         tokenRepository.deleteByEmail(request.getEmail());
@@ -73,7 +72,7 @@ public class AuthService {
 
         // Restore real email sending
         emailService.sendOtpEmail(request.getEmail(), otp);
-        return "OTP sent to your email. Verify to complete registration. [DEBUG] OTP is: " + otp;
+        return "OTP sent to your email. Verify to complete registration.";
     }
 
     @Transactional
@@ -165,6 +164,15 @@ public class AuthService {
             throw new BusinessException("You already have a pending host request");
         }
 
+        hostRequestRepository.findTopByUserIdOrderByRequestedAtDesc(userId)
+            .ifPresent(req -> {
+                if (req.getStatus() == HostRequestStatus.REJECTED && req.getReviewedAt() != null) {
+                    if (req.getReviewedAt().plusHours(1).isAfter(LocalDateTime.now())) {
+                        throw new BusinessException("Your previous request was recently rejected. Please wait 1 hour before reapplying.");
+                    }
+                }
+            });
+
         HostRequest hostRequest = HostRequest.builder()
                 .user(user)
                 .reason(reason)
@@ -194,7 +202,7 @@ public class AuthService {
         }
 
         // Generate OTP
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(999999));
 
         // Save OTP to the temporary token table using the NEW email
         tokenRepository.deleteByEmail(newEmail);
@@ -212,8 +220,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse updateProfile(Long userId, AuthRequests.UpdateProfile request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+        User user = findActiveUser(userId);
 
         user.setName(request.getName());
         user.setCourse(request.getCourse());
@@ -277,6 +284,10 @@ public class AuthService {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             String oldToken = bearerToken.substring(7);
 
+            if (!jwtTokenProvider.validateToken(oldToken)) {
+                throw new BusinessException("Invalid or expired token");
+            }
+
             // Extract email and generate a fresh 40-minute token
             String email = jwtTokenProvider.getUsername(oldToken);
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
@@ -330,7 +341,40 @@ public class AuthService {
                 .forEach(reg -> {
                     reg.setStatus(RegistrationStatus.CANCELLED);
                     registrationRepository.save(reg);
-                    eventService.promoteFromWaitlist(reg.getEvent());
+                    eventService.promoteWaitlistForEvent(reg.getEvent());
+                });
+
+        // Handle WAITLIST — just cancel, no promotion needed (they hold no slot)
+        registrationRepository
+                .findByUserIdAndStatus(userId, RegistrationStatus.WAITLIST)
+                .forEach(reg -> {
+                    reg.setStatus(RegistrationStatus.CANCELLED);
+                    registrationRepository.save(reg);
+                });
+
+        // Handle INCOMPLETE team leader — downgrade remaining team members
+        registrationRepository
+                .findByUserIdAndStatus(userId, RegistrationStatus.INCOMPLETE)
+                .forEach(reg -> {
+                    String teamName = reg.getTeamName();
+                    reg.setStatus(RegistrationStatus.CANCELLED);
+                    registrationRepository.save(reg);
+                    if (teamName != null && !teamName.isBlank()) {
+                        eventService.checkAndDowngradeTeamStatusPublic(reg.getEvent(), teamName);
+                    }
+                });
+
+        // Handle PENDING_INVITATION — delete the invite and check if team needs downgrade
+        registrationRepository
+                .findByUserIdAndStatus(userId, RegistrationStatus.PENDING_INVITATION)
+                .forEach(reg -> {
+                    String teamName = reg.getTeamName();
+                    Event event = reg.getEvent();
+                    registrationRepository.delete(reg);
+                    registrationRepository.flush();
+                    if (teamName != null && !teamName.isBlank()) {
+                        eventService.checkAndDowngradeTeamStatusPublic(event, teamName);
+                    }
                 });
 
         // Suspend hosted events — keep rows for other users' registration history
@@ -342,7 +386,6 @@ public class AuthService {
         // Delete user's own activity — child tables first
         notificationRepository.deleteAllByUserId(userId);
         commentRepository.deleteAllByUserId(userId);
-        ratingRepository.deleteAllByUserId(userId);
         registrationRepository.deleteAllByUserId(userId);
         hostRequestRepository.deleteAllByUserId(userId);
 
@@ -362,7 +405,6 @@ public class AuthService {
         userRepository.findByEmail(email).ifPresent(user -> {
             notificationRepository.deleteAllByUserId(user.getId());
             commentRepository.deleteAllByUserId(user.getId());
-            ratingRepository.deleteAllByUserId(user.getId());
             registrationRepository.deleteAllByUserId(user.getId());
             hostRequestRepository.deleteAllByUserId(user.getId());
             eventService.detachHostFromEvents(user.getId());
@@ -423,7 +465,7 @@ public class AuthService {
     public String initiateForgotPassword(String email) {
         
         // Restore random 6-digit OTP generation
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(999999));
 
         // Save OTP to the temporary token table
         tokenRepository.deleteByEmail(email);

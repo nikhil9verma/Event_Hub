@@ -15,6 +15,8 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
 
     Optional<VerificationToken> findByEmailAndOtpCode(String email, String otpCode);
 
+    boolean existsByEmailAndExpiryDateAfter(String email, LocalDateTime now);
+
     // Forces the database to delete the old OTP immediately before inserting the
     // new one
     @Modifying

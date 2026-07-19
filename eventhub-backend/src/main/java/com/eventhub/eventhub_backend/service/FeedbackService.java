@@ -2,10 +2,8 @@ package com.eventhub.eventhub_backend.service;
 
 import com.eventhub.eventhub_backend.dto.request.FeedbackRequests;
 import com.eventhub.eventhub_backend.dto.response.CommentResponse;
-import com.eventhub.eventhub_backend.dto.response.RatingResponse;
 import com.eventhub.eventhub_backend.entity.Comment;
 import com.eventhub.eventhub_backend.entity.Event;
-import com.eventhub.eventhub_backend.entity.Rating;
 import com.eventhub.eventhub_backend.entity.User;
 import com.eventhub.eventhub_backend.enums.EventStatus;
 import com.eventhub.eventhub_backend.enums.RegistrationStatus;
@@ -13,7 +11,6 @@ import com.eventhub.eventhub_backend.exception.BusinessException;
 import com.eventhub.eventhub_backend.exception.ResourceNotFoundException;
 import com.eventhub.eventhub_backend.repository.CommentRepository;
 import com.eventhub.eventhub_backend.repository.EventRepository;
-import com.eventhub.eventhub_backend.repository.RatingRepository;
 import com.eventhub.eventhub_backend.repository.RegistrationRepository;
 import com.eventhub.eventhub_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedbackService {
 
     private final CommentRepository commentRepository;
-    private final RatingRepository ratingRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final RegistrationRepository registrationRepository;
@@ -44,7 +40,7 @@ public class FeedbackService {
         User user = getActiveUser(userId);
 
         // Ensure they are registered to chat
-        verifyRegistered(eventId, userId);
+        verifyRegistered(event, user);
 
         Comment comment = Comment.builder()
                 .event(event)
@@ -56,6 +52,7 @@ public class FeedbackService {
         return toCommentResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public Page<CommentResponse> getComments(Long eventId, int page, int size) {
         return commentRepository
                 .findByEventIdOrderByCreatedAtDesc(
@@ -65,49 +62,30 @@ public class FeedbackService {
                 .map(this::toCommentResponse);
     }
 
-    /* ========================= RATING ========================= */
-
-    @Transactional
-    public RatingResponse addOrUpdateRating(Long eventId,
-                                            Long userId,
-                                            FeedbackRequests.RatingRequest request) {
-
-        // Ratings still require the event to be COMPLETED
-        Event event = getCompletedEvent(eventId);
-        User user = getActiveUser(userId);
-        verifyRegistered(eventId, userId);
-
-        if (request.getStars() < 1 || request.getStars() > 5) {
-            throw new BusinessException("Rating must be between 1 and 5 stars");
-        }
-
-        Rating rating = ratingRepository
-                .findByUserIdAndEventId(userId, eventId)
-                .orElseGet(() ->
-                        Rating.builder()
-                                .event(event)
-                                .user(user)
-                                .build()
-                );
-
-        rating.setStars(request.getStars());
-
-        Rating saved = ratingRepository.save(rating);
-        return toRatingResponse(saved);
-    }
-
     /* ========================= VALIDATION ========================= */
 
     // 🟢 FIX: Renamed and updated the error message to make sense for upcoming events
-    private void verifyRegistered(Long eventId, Long userId) {
-        boolean registered = registrationRepository
-                .findByUserIdAndEventId(userId, eventId)
-                .filter(r -> r.getStatus() == RegistrationStatus.REGISTERED)
+    private void verifyRegistered(Event event, User user) {
+        if (user.getRole() == com.eventhub.eventhub_backend.enums.Role.SUPER_ADMIN) {
+            return;
+        }
+        if (event.getHost().getId().equals(user.getId())) {
+            return;
+        }
+        if (!event.isRequiresRegistration()) {
+            return; // Crowd events allow anyone logged in to comment
+        }
+
+        boolean hasAccess = registrationRepository
+                .findByUserIdAndEventId(user.getId(), event.getId())
+                .filter(r -> r.getStatus() == RegistrationStatus.REGISTERED
+                        || r.getStatus() == RegistrationStatus.WAITLIST
+                        || r.getStatus() == RegistrationStatus.INCOMPLETE)
                 .isPresent();
 
-        if (!registered) {
+        if (!hasAccess) {
             throw new BusinessException(
-                    "You must be registered for this event to participate in the discussion."
+                    "You must be registered or waitlisted for this event to participate in the discussion."
             );
         }
     }
@@ -146,23 +124,15 @@ public class FeedbackService {
     /* ========================= MAPPERS ========================= */
 
     private CommentResponse toCommentResponse(Comment c) {
+        User commentUser = c.getUser();
         return CommentResponse.builder()
                 .id(c.getId())
-                .userId(c.getUser().getId())
-                .userName(c.getUser().getName())
-                .userImageUrl(c.getUser().getProfileImageUrl())
+                .userId(commentUser != null ? commentUser.getId() : null)
+                .userName(commentUser != null ? commentUser.getName() : "[Deleted User]")
+                .userImageUrl(commentUser != null ? commentUser.getProfileImageUrl() : null)
                 .message(c.getMessage())
                 .createdAt(c.getCreatedAt())
                 .build();
     }
 
-    private RatingResponse toRatingResponse(Rating r) {
-        return RatingResponse.builder()
-                .id(r.getId())
-                .userId(r.getUser().getId())
-                .userName(r.getUser().getName())
-                .stars(r.getStars())
-                .createdAt(r.getCreatedAt())
-                .build();
-    }
 }

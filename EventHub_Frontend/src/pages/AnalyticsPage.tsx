@@ -27,7 +27,7 @@ function StatCard({ label, value, sub, color = 'text-ink-900', icon }: {
 export default function AnalyticsPage() {
   const { id } = useParams<{ id: string }>()
 
-  const { data: analytics, isLoading } = useQuery({
+  const { data: analytics, isLoading, isError } = useQuery({
     queryKey: ['analytics', Number(id)],
     queryFn: () => eventsApi.getAnalytics(Number(id)).then((r: any) => r.data.data ?? null),
     refetchInterval: 30000,
@@ -53,7 +53,14 @@ export default function AnalyticsPage() {
     )
   }
 
-  if (!analytics) return null
+  if (isError || !analytics) return (
+    <div className="page-container py-20 text-center">
+      <span className="text-5xl block mb-4">🔒</span>
+      <h2 className="font-serif text-2xl text-ink-900 mb-2">Access Denied</h2>
+      <p className="text-ink-600 text-sm mb-6">You don't have permission to view this dashboard, or the event doesn't exist.</p>
+      <a href="/" className="btn-primary">← Back to Events</a>
+    </div>
+  )
 
   const pieData = [
     { name: 'Registered', value: analytics.totalRegistrations, color: '#1a1f3a' },
@@ -104,13 +111,6 @@ export default function AnalyticsPage() {
           sub="Attendees waiting for a spot"
           color={analytics.waitlistCount > 0 ? 'text-amber-600' : 'text-ink-400'}
         />
-        {/* <StatCard
-          icon="⭐"
-          label="Avg. Rating"
-          value={analytics.averageRating ? `${analytics.averageRating.toFixed(1)}` : '—'}
-          sub={analytics.ratingCount > 0 ? `Based on ${analytics.ratingCount} reviews` : 'No reviews yet'}
-          color="text-gold-dark"
-        /> */}
       </div>
 
       {/* ─── CHARTS ─── */}

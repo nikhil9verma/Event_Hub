@@ -65,9 +65,6 @@ export interface Event {
   registrationCount: number
   waitlistCount: number
   availableSeats: number
-  trending: boolean
-  averageRating?: number
-  ratingCount: number
   createdAt: string
   updatedAt: string
   requiresRegistration: boolean;
@@ -135,8 +132,6 @@ export interface Analytics {
   fillPercentage: number
   maxParticipants: number
   availableSeats: number
-  averageRating?: number
-  ratingCount: number
   dailyRegistrationCounts: Array<{ date: string; count: number }>
 }
 
@@ -161,7 +156,6 @@ export interface EventFilters {
   search?: string
   category?: string
   available?: boolean
-  trending?: boolean
   dateFrom?: string
   dateTo?: string
   page?: number

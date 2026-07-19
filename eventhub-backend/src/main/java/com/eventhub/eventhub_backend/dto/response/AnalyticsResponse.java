@@ -16,7 +16,5 @@ public class AnalyticsResponse {
     private double fillPercentage;
     private int maxParticipants;
     private int availableSeats;
-    private Double averageRating;
-    private long ratingCount;
     private List<Map<String, Object>> dailyRegistrationCounts;
 }

@@ -221,14 +221,6 @@ function FilterChipsBar({
         )}
       </div>
 
-      {/* Trending toggle */}
-      <button
-        onClick={() => onChange({ trending: filters.trending ? undefined : true })}
-        className={`filter-chip ${filters.trending ? 'active' : ''}`}
-      >
-        🔥 Trending
-      </button>
-
       {/* Active filters summary */}
       {filters.search && (
         <div className="filter-chip active">
@@ -243,67 +235,6 @@ function FilterChipsBar({
   )
 }
 
-// ─── Featured Sidebar ───
-function FeaturedSidebar({ events }: { events: Event[] }) {
-  if (events.length === 0) return null
-
-  return (
-    <aside className="w-72 shrink-0 hidden xl:block">
-      <div className="sticky top-28">
-        <div className="bg-white border border-ink-900/8 rounded-2xl overflow-hidden shadow-card">
-          <div className="px-4 py-3 border-b border-ink-900/6 flex items-center justify-between">
-            <h3 className="font-serif text-base font-bold text-ink-900">Featured</h3>
-            <span className="text-xs text-ink-500 font-sans">Trending Now</span>
-          </div>
-
-          <div className="py-2">
-            {events.slice(0, 6).map(ev => (
-              <Link
-                key={ev.id}
-                to={`/events/${ev.id}`}
-                className="featured-item group"
-              >
-                {/* Event thumbnail */}
-                <div className="w-10 h-10 rounded-lg bg-ink-100 overflow-hidden shrink-0">
-                  <img
-                    src={ev.cardImageUrl || ev.posterUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=200'}
-                    alt={ev.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-ink-900 truncate group-hover:text-yellow-700 transition-colors font-sans">
-                    {ev.title}
-                  </p>
-                  <p className="text-[11px] text-ink-500 font-sans truncate mt-0.5">
-                    {ev.category}
-                    {ev.trending && <span className="ml-1 text-amber-500">🔥</span>}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* CTA */}
-          <div className="px-4 py-3 border-t border-ink-900/6">
-            <Link
-              to="/?trending=true"
-
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-gold/10 hover:bg-gold/20 text-ink-900 text-xs font-semibold font-sans transition-colors"
-            >
-              View All Trending
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </div>
-    </aside>
-  )
-}
 
 // ─── Pagination ───
 function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
@@ -402,14 +333,6 @@ function MobileFilterDrawer({
             </div>
           </div>
 
-          {/* Trending */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2.5">Sort</h4>
-            <div className="flex gap-2">
-              <button onClick={() => onChange({ trending: undefined })} className={`filter-chip ${!filters.trending ? 'active' : ''}`}>Latest</button>
-              <button onClick={() => onChange({ trending: true })} className={`filter-chip ${filters.trending ? 'active' : ''}`}>🔥 Trending</button>
-            </div>
-          </div>
         </div>
 
         <button onClick={onClose} className="w-full btn-primary mt-6 py-3 rounded-xl">
@@ -427,14 +350,12 @@ export default function HomePage() {
   // Read initial state from URL
   const urlSearch   = searchParams.get('q')       || ''
   const urlCategory = searchParams.get('category') || ''
-  const urlTrending = searchParams.get('trending') === 'true'
 
   const [filters, setFilters] = useState<EventFilters>({
     page:     0,
     size:     9,
     search:   urlSearch || undefined,
     category: urlCategory || undefined,
-    trending: urlTrending || undefined,
   })
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -443,34 +364,24 @@ export default function HomePage() {
   useEffect(() => {
     const q        = searchParams.get('q')       || ''
     const cat      = searchParams.get('category') || ''
-    const trending = searchParams.get('trending') === 'true'
     setFilters(f => ({
       ...f,
       search:   q       || undefined,
       category: cat     || undefined,
-      trending: trending || undefined,
       page:     0,
     }))
   }, [searchParams])
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ['events', filters],
     queryFn:  () => eventsApi.getEvents(filters).then((r: any) => r.data.data ?? null),
     refetchInterval: 60000,
     placeholderData: (prev: any) => prev,
   })
 
-  const events       = data?.content      ?? []
+  const events: Event[] = data?.content ?? []
   const totalPages   = data?.totalPages   ?? 0
   const totalElements = data?.totalElements ?? 0
-
-  // Trending events for featured sidebar
-  const { data: trendingData } = useQuery({
-    queryKey: ['trending-events'],
-    queryFn:  () => eventsApi.getEvents({ trending: true, page: 0, size: 6 } as EventFilters).then((r: any) => r.data.data ?? null),
-    staleTime: 300000,
-  })
-  const trendingEvents: Event[] = trendingData?.content ?? []
 
   const handleFilterChange = (newFilters: Partial<EventFilters>) => {
     setFilters(f => ({ ...f, ...newFilters, page: 0 }))
@@ -489,11 +400,9 @@ export default function HomePage() {
     setSearchParams({})
   }
 
-  // Count active filters (excluding search which is shown separately)
   const activeFilterCount = [
     filters.eventType,
     filters.available,
-    filters.trending,
   ].filter(Boolean).length
 
   return (
@@ -570,7 +479,18 @@ export default function HomePage() {
             )}
 
             {/* ─── Event Grid ─── */}
-            {isLoading ? (
+            {isError ? (
+              <div className="text-center py-24 bg-white rounded-2xl border border-ink-900/5">
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className="font-serif text-xl text-ink-900 mb-2">Error Loading Events</h3>
+                <p className="text-ink-600/60 font-sans text-sm mb-6">
+                  There was a problem connecting to the server. Please try again later.
+                </p>
+                <button onClick={() => window.location.reload()} className="btn-outline">
+                  Retry
+                </button>
+              </div>
+            ) : isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => <EventCardSkeleton key={i} />)}
               </div>
@@ -601,8 +521,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* ─── RIGHT: Featured Sidebar ─── */}
-          <FeaturedSidebar events={trendingEvents} />
         </div>
       </div>
 
