@@ -61,6 +61,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
   const isUserWaitlisted   = event.currentUserRegistrationStatus === 'WAITLIST'
   const isPendingInvite    = event.currentUserRegistrationStatus === 'PENDING_INVITATION'
   const isIncomplete       = event.currentUserRegistrationStatus === 'INCOMPLETE'
+  const isPastDeadline     = isPast(new Date(event.registrationDeadline))
 
   const catStyle = getCategoryStyle(event.category)
 
@@ -195,14 +196,14 @@ export default function EventCard({ event, featured }: { event: Event; featured?
             <Link
               to={`/events/${event.id}`}
               className={`block w-full text-center py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
-                isCompleted || isSuspended
+                isCompleted || isSuspended || isPastDeadline
                   ? 'bg-parchment-100 text-ink-500 hover:bg-parchment-200'
                   : isWaitlist
                     ? 'bg-ink-900 text-white hover:bg-ink-800 hover:-translate-y-0.5'
                     : 'bg-gold text-ink-900 hover:bg-gold-light hover:-translate-y-0.5 shadow-gold/30'
               }`}
             >
-              {isCompleted || isSuspended ? 'View Details' : isWaitlist ? 'Join Waitlist' : 'View & Register'}
+              {isCompleted || isSuspended ? 'View Details' : isPastDeadline ? 'Registration Closed' : isWaitlist ? 'Join Waitlist' : 'View & Register'}
             </Link>
           )}
         </div>

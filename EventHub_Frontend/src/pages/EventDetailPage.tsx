@@ -284,9 +284,9 @@ export default function EventDetailPage() {
             {sortedStages.length > 0 && (
               <div className="card p-6">
                 <h2 className="section-title mb-6 border-b border-ink-900/5 pb-2">Event Timeline</h2>
-                <div className="relative border-l-2 border-gold/30 ml-3 space-y-8 pb-4">
+                <div className="relative ml-3">
                   {sortedStages.map((stage, idx) => (
-                    <div key={stage.id || idx} className="relative pl-6">
+                    <div key={stage.id || idx} className={`relative pl-6 pb-8 ${idx !== sortedStages.length - 1 ? 'border-l-2 border-gold/30' : ''}`}>
                       <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-gold border-4 border-white shadow-sm" />
                       <p className="text-xs font-bold uppercase tracking-wider text-ink-600/60 mb-1">{format(new Date(stage.stageDate), 'MMM d, h:mm a')}</p>
                       <h3 className="font-serif text-lg text-ink-900">{stage.title}</h3>
