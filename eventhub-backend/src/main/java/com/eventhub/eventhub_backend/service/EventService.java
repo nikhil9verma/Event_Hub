@@ -715,8 +715,11 @@ public class EventService {
 
             // ─── AVAILABILITY FILTER (Open for Registration) ───
             if (Boolean.TRUE.equals(filter.getAvailable())) {
-                // 1. Event must be ACTIVE (not FULL, SUSPENDED, or COMPLETED)
-                predicates.add(cb.equal(root.get("status"), EventStatus.ACTIVE));
+                // 1. Event must be ACTIVE or FULL (since FULL events allow waitlisting)
+                predicates.add(cb.or(
+                        cb.equal(root.get("status"), EventStatus.ACTIVE),
+                        cb.equal(root.get("status"), EventStatus.FULL)
+                ));
 
                 // 2. The deadline must be in the future OR it must be a Crowd Event (no registration needed)
                 Predicate isCrowdEvent = cb.isFalse(root.get("requiresRegistration"));
