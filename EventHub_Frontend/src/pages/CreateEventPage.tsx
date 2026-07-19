@@ -209,7 +209,7 @@ export default function CreateEventPage() {
                 {cardPreview || existingEvent?.cardImageUrl ? (
                   <>
                     <div className="absolute inset-x-0 top-0 bg-ink-900/60 py-2 text-center text-white text-xs font-medium z-10 opacity-90 group-hover:bg-ink-900/80 transition-all">Click to change card image 📷</div>
-                    <img src={cardPreview || getImageUrl(existingEvent?.cardImageUrl) || ''} alt="Card Preview" className="w-full h-32 object-cover group-hover:scale-[1.01] transition-transform" />
+                    <img src={cardPreview || getImageUrl(existingEvent?.cardImageUrl) || ''} alt="Card Preview" className="w-full h-32 object-contain bg-ink-900/5 group-hover:scale-[1.01] transition-transform" />
                   </>
                 ) : (
                   <div className="h-32 flex flex-col items-center justify-center gap-2 text-ink-600/40">
@@ -229,7 +229,7 @@ export default function CreateEventPage() {
                 {posterPreview || existingEvent?.posterUrl ? (
                   <>
                     <div className="absolute inset-x-0 top-0 bg-ink-900/60 py-2 text-center text-white text-xs font-medium z-10 opacity-90 group-hover:bg-ink-900/80 transition-all">Click to change poster 📷</div>
-                    <img src={posterPreview || getImageUrl(existingEvent?.posterUrl) || ''} alt="Poster" className="w-full h-32 object-cover group-hover:scale-[1.01] transition-transform" />
+                    <img src={posterPreview || getImageUrl(existingEvent?.posterUrl) || ''} alt="Poster Preview" className="w-full h-32 object-contain bg-ink-900/5 group-hover:scale-[1.01] transition-transform" />
                   </>
                 ) : (
                   <div className="h-32 flex flex-col items-center justify-center gap-2 text-ink-600/40">
