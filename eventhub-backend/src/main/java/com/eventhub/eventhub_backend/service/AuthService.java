@@ -185,6 +185,7 @@ public class AuthService {
         return toHostRequestResponse(hostRequestRepository.save(hostRequest));
     }
 
+    @Transactional(readOnly = true)
     public List<HostRequestResponse> getPendingHostRequests() {
         return hostRequestRepository
                 .findByStatusOrderByRequestedAtAsc(HostRequestStatus.PENDING)
