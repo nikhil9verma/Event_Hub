@@ -31,7 +31,7 @@ public class EventScheduler {
     @Scheduled(cron = "${app.scheduled.reminder-cron}")
     public void sendEventReminders() {
         log.info("Checking for upcoming event reminders...");
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
 
         // Fetch events starting in the next 24 hours
         List<Event> events = eventRepository.findEventsForReminder(

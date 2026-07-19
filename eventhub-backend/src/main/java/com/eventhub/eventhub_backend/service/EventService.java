@@ -675,7 +675,7 @@ public class EventService {
     private Specification<Event> buildSpecification(EventFilterRequest filter,  Long currentUserId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
 
             // Always hide suspended events
             predicates.add(cb.notEqual(root.get("status"), EventStatus.SUSPENDED));
