@@ -88,6 +88,7 @@ export default function EventDetailPage() {
   
   const isHost = user?.id === event?.hostId || user?.role === 'SUPER_ADMIN'
   const isTeamEvent = event ? event.maxTeamSize > 1 && !isCrowdEvent : false
+  const isWaitlist = event ? event.availableSeats <= 0 && !isCrowdEvent : false
 
   // ─── FETCH TEAM DATA (Skip for Crowd Events) ───
   const { data: myTeam } = useQuery({
@@ -509,9 +510,9 @@ export default function EventDetailPage() {
                 <button 
                   onClick={handleRegisterClick} 
                   disabled={registerMutation.isPending}
-                  className="btn-gold w-full py-3 rounded-xl shadow-sm text-ink-900 font-bold flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5"
+                  className={`${isWaitlist ? 'bg-ink-900 text-white hover:bg-ink-800' : 'btn-gold text-ink-900'} w-full py-3 rounded-xl shadow-sm font-bold flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5`}
                 >
-                  {registerMutation.isPending ? 'Processing...' : isTeamEvent ? 'Register Team' : 'Register Now'}
+                  {registerMutation.isPending ? 'Processing...' : isWaitlist ? (isTeamEvent ? 'Join Waitlist (Team)' : 'Join Waitlist') : (isTeamEvent ? 'Register Team' : 'Register Now')}
                 </button>
               )}
 
