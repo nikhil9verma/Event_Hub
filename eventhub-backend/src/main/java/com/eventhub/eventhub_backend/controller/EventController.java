@@ -108,8 +108,13 @@ public class EventController {
         StringBuilder csv = new StringBuilder();
         csv.append("Name,Email,Course,Batch,Team Name,Status,Registered Date,Registered Time\n");
         
+        java.util.Set<String> exportedEmails = new java.util.HashSet<>();
+        
         for (AttendeeResponse attendee : attendees) {
             if (attendee.getStatus() != null && "PENDING_INVITATION".equals(attendee.getStatus().name())) {
+                continue;
+            }
+            if (!exportedEmails.add(attendee.getEmail())) {
                 continue;
             }
 
@@ -128,6 +133,9 @@ public class EventController {
                     
             if (attendee.getTeammates() != null) {
                 for (AttendeeResponse.TeamMemberResponse tm : attendee.getTeammates()) {
+                    if (!exportedEmails.add(tm.getEmail())) {
+                        continue;
+                    }
                     csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                             escapeCsv(tm.getName()),
                             escapeCsv(tm.getEmail()),

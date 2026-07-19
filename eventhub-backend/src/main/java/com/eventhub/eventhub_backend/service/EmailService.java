@@ -102,7 +102,7 @@ public class EmailService {
     // ─── TEAM & BULK EMAILS ─────────────────────────────────────────────────────
 
     @Async("emailTaskExecutor")
-    public void sendTeamRegistrationConfirmation(User leader, List<TeamMember> teamMembers, Event event, boolean isWaitlist) {
+    public void sendTeamRegistrationConfirmation(User leader, List<User> teamMembers, Event event, boolean isWaitlist) {
         List<String> allEmails = new ArrayList<>();
         allEmails.add(leader.getEmail());
         teamMembers.forEach(tm -> allEmails.add(tm.getEmail()));

@@ -352,8 +352,6 @@ public class EventService {
                 .registeredAt(LocalDateTime.now())
                 .build();
 
-        List<TeamMember> teamMemberLinks = new ArrayList<>();
-
         // ─── 2. CREATE PENDING INVITATIONS FOR TEAMMATES ───
         for (User teammate : teammateUsers) {
             Registration teammateInvite = Registration.builder()
@@ -365,26 +363,18 @@ public class EventService {
                     .build();
             registrationRepository.save(teammateInvite);
 
-            TeamMember tm = TeamMember.builder()
-                    .name(teammate.getName())
-                    .email(teammate.getEmail())
-                    .registration(leaderRegistration)
-                    .build();
-            teamMemberLinks.add(tm);
-
             if (request != null && request.getTeamName() != null) {
                 notificationService.createNotification(teammate.getId(), "New Team Invite! 📧",
                         user.getName() + " invited you to join '" + request.getTeamName() + "' for the event: " + event.getTitle());
             }
         }
 
-        leaderRegistration.setTeamMembers(teamMemberLinks);
         Registration savedLeader = registrationRepository.save(leaderRegistration);
 
         // Check if team is immediately complete (e.g., solo event)
         checkAndUpgradeTeamStatus(event, leaderRegistration.getTeamName());
 
-        handlePostRegistration(user, event, leaderStatus, teamMemberLinks);
+        handlePostRegistration(user, event, leaderStatus, teammateUsers);
         updateEventStatus(event);
         eventRepository.save(event);
 
@@ -450,6 +440,12 @@ public class EventService {
 
         if (acceptedCount >= event.getMinTeamSize()) {
             RegistrationStatus newStatus = determineStatus(event);
+            boolean hasRegistered = teamMembers.stream().anyMatch(r -> r.getStatus() == RegistrationStatus.REGISTERED);
+            boolean hasWaitlist = teamMembers.stream().anyMatch(r -> r.getStatus() == RegistrationStatus.WAITLIST);
+
+            if (hasRegistered) newStatus = RegistrationStatus.REGISTERED;
+            else if (hasWaitlist) newStatus = RegistrationStatus.WAITLIST;
+
             for (Registration r : teamMembers) {
                 if (r.getStatus() == RegistrationStatus.INCOMPLETE) {
                     r.setStatus(newStatus);
@@ -637,7 +633,7 @@ public class EventService {
         return occupiedSlots < event.getMaxParticipants() ? RegistrationStatus.REGISTERED : RegistrationStatus.WAITLIST;
     }
 
-    private void handlePostRegistration(User user, Event event, RegistrationStatus status, List<TeamMember> teamMembers) {
+    private void handlePostRegistration(User user, Event event, RegistrationStatus status, List<User> teamMembers) {
         boolean isWaitlist = (status == RegistrationStatus.WAITLIST);
 
         if (teamMembers != null && !teamMembers.isEmpty()) {
