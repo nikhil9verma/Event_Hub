@@ -106,28 +106,33 @@ public class EventController {
         List<AttendeeResponse> attendees = eventService.getEventAttendees(id, securityUtils.getCurrentUserId());
         
         StringBuilder csv = new StringBuilder();
-        csv.append("Name,Email,Course,Batch,Team Name,Status,Registered At\n");
+        csv.append("Name,Email,Course,Batch,Team Name,Status,Registered Date,Registered Time\n");
         
         for (AttendeeResponse attendee : attendees) {
-            csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+            String regDate = attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toLocalDate().toString() : "";
+            String regTime = attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toLocalTime().toString() : "";
+            
+            csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                     escapeCsv(attendee.getName()),
                     escapeCsv(attendee.getEmail()),
                     escapeCsv(attendee.getCourse()),
                     escapeCsv(attendee.getBatch()),
                     escapeCsv(attendee.getTeamName()),
                     attendee.getStatus() != null ? attendee.getStatus().name() : "",
-                    attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toString() : ""));
+                    regDate,
+                    regTime));
                     
             if (attendee.getTeammates() != null) {
                 for (AttendeeResponse.TeamMemberResponse tm : attendee.getTeammates()) {
-                    csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                    csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                             escapeCsv(tm.getName()),
                             escapeCsv(tm.getEmail()),
                             "N/A",
                             "N/A",
                             escapeCsv(attendee.getTeamName()),
                             attendee.getStatus() != null ? attendee.getStatus().name() : "",
-                            attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toString() : ""));
+                            regDate,
+                            regTime));
                 }
             }
         }
