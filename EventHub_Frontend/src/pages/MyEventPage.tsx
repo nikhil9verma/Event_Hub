@@ -62,7 +62,6 @@ export default function MyEventsPage() {
                       <span className={`badge border text-[11px] ${STATUS_BADGE[event.status]}`}>
                         {event.status}
                       </span>
-                      {event.trending && <span className="badge badge-gold text-[10px]">🔥</span>}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-ink-600/50 font-sans">
                       <span>📅 {format(new Date(event.eventDate), 'MMM d, yyyy')}</span>

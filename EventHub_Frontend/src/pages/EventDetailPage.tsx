@@ -305,7 +305,7 @@ export default function EventDetailPage() {
                     className="input-field resize-none text-sm"
                   />
                   <button
-                    onClick={() => commentMutation.mutate()}
+                    onClick={() => commentMutation.mutate(undefined)}
                     disabled={!comment.trim() || commentMutation.isPending}
                     className="btn-primary text-sm py-2"
                   >
