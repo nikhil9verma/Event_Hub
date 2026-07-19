@@ -69,7 +69,7 @@ export default function EventCard({ event, featured }: { event: Event; featured?
     <div className={`group relative bg-white rounded-2xl border ${featured ? 'border-gold/40' : 'border-ink-900/6'} shadow-card hover:shadow-card-hover transition-all duration-300 flex flex-col overflow-hidden hover:-translate-y-1`}>
 
       {/* ── IMAGE ── */}
-      <Link to={`/events/${event.id}`} className="relative aspect-square w-full bg-ink-900 overflow-hidden shrink-0 block">
+      <Link to={`/events/${event.id}`} className="relative aspect-[3/2] w-full bg-ink-900 overflow-hidden shrink-0 block">
         <img
           src={getImageUrl(event.cardImageUrl || event.posterUrl)}
           alt={event.title}
