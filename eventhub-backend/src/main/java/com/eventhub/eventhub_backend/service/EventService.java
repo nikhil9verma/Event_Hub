@@ -444,7 +444,8 @@ public class EventService {
 
         long acceptedCount = teamMembers.stream()
                 .filter(r -> r.getStatus() == RegistrationStatus.REGISTERED
-                        || r.getStatus() == RegistrationStatus.WAITLIST)
+                        || r.getStatus() == RegistrationStatus.WAITLIST
+                        || r.getStatus() == RegistrationStatus.INCOMPLETE)
                 .count();
 
         if (acceptedCount >= event.getMinTeamSize()) {
