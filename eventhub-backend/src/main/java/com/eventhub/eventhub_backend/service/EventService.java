@@ -118,6 +118,7 @@ public class EventService {
         return toResponse(saved, Optional.empty());
     }
 
+    @Transactional(readOnly = true)
     public List<AttendeeResponse> getEventAttendees(Long eventId, Long hostId) {
         Event event = getEventOrThrow(eventId);
         verifyHostOwnership(event, hostId);
