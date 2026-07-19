@@ -45,11 +45,6 @@ function StatsBanner({ totalElements }: { totalElements: number }) {
                   ? `Welcome back, ${user.name.split(' ')[0]}! 👋`
                   : 'Discover Events on Campus'}
               </h1>
-              {totalElements > 0 && (
-                <span className="stats-pill">
-                  ⚡ {totalElements}+ Events
-                </span>
-              )}
             </div>
             <p className="text-ink-500 font-sans text-sm">
               Competitions, workshops, hackathons, cultural fests & more
