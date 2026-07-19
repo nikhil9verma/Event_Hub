@@ -117,6 +117,19 @@ public class EventController {
                     escapeCsv(attendee.getTeamName()),
                     attendee.getStatus() != null ? attendee.getStatus().name() : "",
                     attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toString() : ""));
+                    
+            if (attendee.getTeammates() != null) {
+                for (AttendeeResponse.TeamMemberResponse tm : attendee.getTeammates()) {
+                    csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                            escapeCsv(tm.getName()),
+                            escapeCsv(tm.getEmail()),
+                            "N/A",
+                            "N/A",
+                            escapeCsv(attendee.getTeamName()),
+                            attendee.getStatus() != null ? attendee.getStatus().name() : "",
+                            attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toString() : ""));
+                }
+            }
         }
         
         org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
