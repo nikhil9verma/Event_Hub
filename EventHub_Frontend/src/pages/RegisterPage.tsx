@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,16 +22,18 @@ type RegisterForm = z.infer<typeof schema>
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(schema),
+    defaultValues: location.state?.formData || {}
   })
 
   const registerMutation = useMutation({
     mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => authApi.register(data),
     onSuccess: (res, variables) => {
       toast.success('Account created! Please check your email for the verification code.');
-      navigate(`/verify-email?email=${encodeURIComponent(variables.email)}`);
+      navigate(`/verify-email?email=${encodeURIComponent(variables.email)}`, { state: { formData: variables } });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Registration failed')

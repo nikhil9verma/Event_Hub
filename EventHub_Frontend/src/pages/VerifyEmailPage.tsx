@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/Endpoints'
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const email = searchParams.get('email') || ''
   const [otp, setOtp] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -75,7 +76,7 @@ export default function VerifyEmailPage() {
 
         <p className="text-parchment-200/40 font-sans text-sm text-center mt-6">
           Didn't receive it? Check your spam folder or{' '}
-          <Link to="/register" className="text-gold hover:text-gold-light transition-colors">
+          <Link to="/register" state={location.state} className="text-gold hover:text-gold-light transition-colors">
             try again
           </Link>
         </p>
