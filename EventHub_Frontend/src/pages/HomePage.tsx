@@ -380,8 +380,8 @@ export default function HomePage() {
   })
 
   const events: Event[] = data?.content ?? []
-  const totalPages   = data?.totalPages   ?? 0
-  const totalElements = data?.totalElements ?? 0
+  const totalPages    = data?.page?.totalPages    ?? data?.totalPages    ?? 0
+  const totalElements = data?.page?.totalElements ?? data?.totalElements ?? 0
 
   const handleFilterChange = (newFilters: Partial<EventFilters>) => {
     setFilters(f => ({ ...f, ...newFilters, page: 0 }))
