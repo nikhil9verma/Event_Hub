@@ -38,8 +38,11 @@ export default function EventDetailPage() {
     queryKey: ['comments', Number(id)],
     queryFn: ({ pageParam = 0 }) => eventsApi.getComments(Number(id), pageParam, 10).then((r: any) => r.data.data),
     getNextPageParam: (lastPage: any) => {
-      if (lastPage.pageable.pageNumber + 1 < lastPage.totalPages) {
-        return lastPage.pageable.pageNumber + 1
+      if (!lastPage) return undefined;
+      const currentPage = lastPage.page?.number ?? lastPage.pageable?.pageNumber ?? 0;
+      const totalPages = lastPage.page?.totalPages ?? lastPage.totalPages ?? 0;
+      if (currentPage + 1 < totalPages) {
+        return currentPage + 1
       }
       return undefined
     },
