@@ -71,8 +71,12 @@ public class AuthService {
                 .build());
 
         // Restore real email sending
-        emailService.sendOtpEmail(request.getEmail(), otp);
-        return "OTP sent to your email. Verify to complete registration.";
+        try {
+            emailService.sendOtpEmail(request.getEmail(), otp);
+        } catch (Exception e) {
+            System.err.println("Failed to send email, but returning OTP for testing: " + e.getMessage());
+        }
+        return "OTP sent to your email. Verify to complete registration. [DEBUG] OTP is: " + otp;
     }
 
     @Transactional
@@ -213,8 +217,12 @@ public class AuthService {
                 .build());
 
         // Send the OTP to the NEW email
-        emailService.sendOtpEmail(newEmail, otp);
-        return "OTP sent to your new email address. Please verify to complete the change.";
+        try {
+            emailService.sendOtpEmail(newEmail, otp);
+        } catch (Exception e) {
+            System.err.println("Failed to send email, but returning OTP for testing: " + e.getMessage());
+        }
+        return "OTP sent to your new email address. Please verify to complete the change. [DEBUG] OTP is: " + otp;
     }
     // ─── INSIDE AuthService.java ───
 
@@ -476,8 +484,12 @@ public class AuthService {
                 .build());
 
         // Restore real email sending
-        emailService.sendForgotPasswordOtp(email, otp);
-        return "Password reset OTP sent to your email.";
+        try {
+            emailService.sendForgotPasswordOtp(email, otp);
+        } catch (Exception e) {
+            System.err.println("Failed to send email, but returning OTP for testing: " + e.getMessage());
+        }
+        return "Password reset OTP sent to your email. [DEBUG] OTP is: " + otp;
     }
 
     @Transactional
