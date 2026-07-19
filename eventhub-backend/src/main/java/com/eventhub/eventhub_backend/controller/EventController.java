@@ -109,6 +109,10 @@ public class EventController {
         csv.append("Name,Email,Course,Batch,Team Name,Status,Registered Date,Registered Time\n");
         
         for (AttendeeResponse attendee : attendees) {
+            if (attendee.getStatus() != null && "PENDING_INVITATION".equals(attendee.getStatus().name())) {
+                continue;
+            }
+
             String regDate = attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toLocalDate().toString() : "";
             String regTime = attendee.getRegisteredAt() != null ? attendee.getRegisteredAt().toLocalTime().toString() : "";
             
