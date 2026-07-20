@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/Endpoints' 
+import { PasswordInput } from '../components/common/PasswordInput'
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -71,12 +72,20 @@ export default function RegisterPage() {
           {fields.map(field => (
             <div key={field.name}>
               <label className="block text-sm font-sans text-parchment-200/70 mb-1.5">{field.label}</label>
-              <input
-                {...register(field.name)}
-                type={field.type}
-                placeholder={field.placeholder}
-                className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
-              />
+              {field.type === 'password' ? (
+                <PasswordInput
+                  {...register(field.name)}
+                  placeholder={field.placeholder}
+                  className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
+                />
+              ) : (
+                <input
+                  {...register(field.name)}
+                  type={field.type}
+                  placeholder={field.placeholder}
+                  className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
+                />
+              )}
               {errors[field.name] && (
                 <p className="text-crimson text-xs mt-1 font-sans">{errors[field.name]?.message}</p>
               )}

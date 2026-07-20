@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/Endpoints'
+import { PasswordInput } from '../components/common/PasswordInput'
 
 // Schema for Step 1
 const emailSchema = z.object({
@@ -134,9 +135,8 @@ export default function ForgotPasswordPage() {
     {/* 2. New Password Field */}
     <div>
         <label className="block text-sm font-sans text-parchment-200/70 mb-1.5">New Password</label>
-        <input
+        <PasswordInput
             {...resetForm.register('newPassword')}
-            type="password"
             placeholder="••••••••"
             autoComplete="new-password"
             className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"
@@ -149,9 +149,8 @@ export default function ForgotPasswordPage() {
     {/* 3. Confirm Password Field */}
     <div>
         <label className="block text-sm font-sans text-parchment-200/70 mb-1.5">Confirm New Password</label>
-        <input
+        <PasswordInput
             {...resetForm.register('confirmPassword')}
-            type="password"
             placeholder="••••••••"
             autoComplete="new-password"
             className="w-full px-4 py-3 rounded-xl bg-ink-800 border border-ink-700 text-white placeholder-parchment-200/20 font-sans focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all"

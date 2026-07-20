@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/Endpoints'
 import { useAuthStore } from '../store/authStore'
+import { PasswordInput } from '../components/common/PasswordInput'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -113,13 +114,12 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-sm font-sans text-parchment-100/70 mb-1.5">Password</label>
-              <input
+              <PasswordInput
                 {...register('password')}
-                type="password"
                 placeholder="••••••••"
                 className={`w-full px-4 py-3 rounded-xl bg-ink-800 border text-white placeholder-parchment-100/20 font-sans focus:outline-none focus:ring-1 transition-all ${
-                  errors.password || serverError
-                    ? 'border-crimson/60 focus:border-crimson focus:ring-crimson/30'
+                  errors.password || serverError 
+                    ? 'border-crimson/50 focus:border-crimson focus:ring-crimson/30' 
                     : 'border-ink-700 focus:border-gold/60 focus:ring-gold/30'
                 }`}
               />
