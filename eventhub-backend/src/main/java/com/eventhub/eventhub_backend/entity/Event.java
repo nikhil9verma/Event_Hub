@@ -144,10 +144,22 @@ public class Event {
     @Column(name = "start_time")
     private LocalDateTime startTime;
 
+    @Column(name = "end_time")
+    private LocalDateTime endTime;
+
+    @Column(name = "capacity")
+    private Integer capacity;
+
     @PrePersist
     public void prePersist() {
         if (this.startTime == null) {
             this.startTime = this.eventDate;
+        }
+        if (this.endTime == null) {
+            this.endTime = this.eventEndTime;
+        }
+        if (this.capacity == null) {
+            this.capacity = this.maxParticipants;
         }
     }
     // -------------------------
