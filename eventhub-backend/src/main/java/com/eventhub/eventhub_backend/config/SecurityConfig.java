@@ -66,7 +66,9 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         String configuredFrontendUrl = frontendUrl == null ? "" : frontendUrl.trim();
         config.setAllowedOrigins(Stream.of(
-                        configuredFrontendUrl
+                        configuredFrontendUrl,
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173"
                 )
                 .filter(origin -> !origin.isBlank())
                 .distinct()
