@@ -23,6 +23,10 @@ public class VerificationToken {
 
     private String name;
 
+    @Builder.Default
+    @Column(name = "token")
+    private String token = java.util.UUID.randomUUID().toString();
+
     // --- ADD THESE TWO LINES ---
     private String course;
     private String batch;
@@ -35,4 +39,16 @@ public class VerificationToken {
 
     @Column(nullable = false)
     private LocalDateTime expiryDate;
+
+    // --- LEGACY COLUMN FIX ---
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.expiresAt == null) {
+            this.expiresAt = this.expiryDate;
+        }
+    }
+    // -------------------------
 }
