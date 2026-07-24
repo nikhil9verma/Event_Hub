@@ -139,4 +139,16 @@ public class Event {
     public int getAvailableSeats() {
         return (int) (maxParticipants - getRegistrationCount());
     }
+
+    // --- LEGACY COLUMN FIX ---
+    @Column(name = "start_time")
+    private LocalDateTime startTime;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.startTime == null) {
+            this.startTime = this.eventDate;
+        }
+    }
+    // -------------------------
 }
