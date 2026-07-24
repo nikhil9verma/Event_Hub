@@ -2,8 +2,9 @@ package com.eventhub.eventhub_backend.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,7 +25,7 @@ public class JwtTokenProvider {
 
     private SecretKey key() {
         return Keys.hmacShaKeyFor(
-                Decoders.BASE64.decode(jwtSecret)
+                jwtSecret.getBytes(StandardCharsets.UTF_8)
         );
     }
 
