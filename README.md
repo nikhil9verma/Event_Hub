@@ -3,6 +3,8 @@
 **EventHub** is a full-stack university event management platform where students can discover, register for, and manage campus events — from hackathons and competitions to cultural fests and workshops.
 
 > Inspired by platforms like Unstop, built for campus communities.
+>
+> Live link-> https://event-hub-beta-cyan.vercel.app/ (may take few minutes due to cold start)
 
 ---
 
